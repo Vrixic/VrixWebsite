@@ -99,11 +99,7 @@ input, select, textarea {
 	}
 
 	body {
-		background-color: #935d8c;
-		background-image: url("images/overlay.png"), -moz-linear-gradient(45deg, #e37682 15%, #5f4d93 85%);
-		background-image: url("images/overlay.png"), -webkit-linear-gradient(45deg, #e37682 15%, #5f4d93 85%);
-		background-image: url("images/overlay.png"), -ms-linear-gradient(45deg, #e37682 15%, #5f4d93 85%);
-		background-image: url("images/overlay.png"), linear-gradient(45deg, #e37682 15%, #5f4d93 85%);
+		background-color: #2e2e2e;
 	}
 
 		body.is-preload *, body.is-preload *:before, body.is-preload *:after {
@@ -120,7 +116,7 @@ input, select, textarea {
 /* Type */
 
 	body {
-		background-color: #935d8c;
+		background-color: #2e2e2e;
 		color: rgba(255, 255, 255, 0.65);
 	}
 
@@ -286,7 +282,7 @@ input, select, textarea {
 		margin: 2em 0;
 	}
 
-		hr.major {
+		hr.Highlighted {
 			margin: 3em 0;
 		}
 
@@ -3689,10 +3685,11 @@ input, select, textarea {
 	}
 
 	#footer .copyright {
+		width: 100%;
+		font-size: 0.8em;
 		text-align: center;
 		margin-left:auto;
 		margin-right:auto;
-		margin-top:2em;
 	}
 
 	#footer .EmailText 
@@ -3703,59 +3700,6 @@ input, select, textarea {
 	#footer .Email 
 	{
   		color:gray
-	}
-
-	@media screen and (max-width: 1280px) {
-
-		#footer {
-			padding: 4em 4em 2em 4em ;
-		}
-
-	}
-
-	@media screen and (max-width: 980px) {
-
-		#footer {
-			padding: 4em 3em 2em 3em ;
-			display: block;
-			margin: 0 0 3em 0;
-			width: 100%;
-		}
-
-			#footer > * {
-				width: 100%;
-				margin-left: 0;
-				margin-bottom: 3em;
-			}
-
-			#footer .copyright {
-				text-align: left;
-			}
-
-	}
-
-	@media screen and (max-width: 736px) {
-
-		#footer {
-			padding: 3em 2em 1em 2em ;
-		}
-
-	}
-
-	@media screen and (max-width: 480px) {
-
-		#footer {
-			padding: 3em 1.5em 1em 1.5em ;
-		}
-
-	}
-
-	@media screen and (max-width: 480px) {
-
-		#footer {
-			padding: 2.5em 1em 0.5em 1em ;
-		}
-
 	}
 
 /* Wrapper */

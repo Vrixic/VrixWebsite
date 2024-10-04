@@ -2631,7 +2631,7 @@ section.special, article.special {
 }
 
 footer.major {
-	margin-top: 3em;
+	padding-bottom: 1em;
 }
 
 /* Table */
@@ -2812,12 +2812,11 @@ table.alt tbody tr td {
   }
   
   /* Make the image responsive */
-  .GenericProjectContainer img {
+.GenericProjectContainer img {
 	width: calc(100% - 20%);
 	height: inherit;
 
 	border-radius: 30px;
-	
 	border-width: thick;
     border-style:solid;
 	border-color: #2e2e2e;
@@ -2826,7 +2825,7 @@ table.alt tbody tr td {
 
 	scale: 1;
 	transition:scale .5s ease-out;
-  }
+}
 
 .GenericProjectContainer img:hover {
 	scale: 1.05;
@@ -3282,6 +3281,53 @@ body.is-preload #header.alt .logo {
 
 #main .PFP .image {
 	border-color: #dddddd;
+}
+
+/* Icons */
+#main input[type="submit"].icon:before,
+#main input[type="reset"].icon:before,
+#main input[type="button"].icon:before,
+#main button.icon:before,
+#main .button.icon:before {
+	color: rgba(99, 99, 99, 0.25);
+}
+#main input[type="submit"].primary.icon:before,
+#main input[type="reset"].primary.icon:before,
+#main input[type="button"].primary.icon:before,
+#main button.primary.icon:before,
+#main .button.primary.icon:before {
+	color: #ffffff !important;
+}
+#main .icon.major {
+	border-color: #dddddd;
+}
+#main .icon.major:before {
+	border-color: #dddddd;
+}
+#main .icon.alt {
+	border-color: #dddddd;
+	color: #636363;
+}
+#main .icon.alt:hover {
+	background-color: rgba(222, 222, 222, 0.25);
+}
+#main .icon.alt:active {
+	background-color: rgba(222, 222, 222, 0.5);
+}
+
+ul.icons {
+	cursor: default;
+	list-style: none;
+	padding-left: 0;
+}
+
+ul.icons li {
+	display: inline-block;
+	padding: 0 0.65em 0 0;
+}
+
+ul.icons li:last-child {
+	padding-right: 0 !important;
 }
 
 @media screen and (max-width: 1280px) {

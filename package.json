@@ -2,6 +2,9 @@
   "name": "VrixWebsite",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": "20.18.x"
+  },
   "type": "module",
   "scripts": {
     "start": "npm run build && serve --compress public/ -p 1618",

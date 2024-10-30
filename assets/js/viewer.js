@@ -103,7 +103,8 @@ class ThreeJSTemplate {
     this.scene.add(ambientLight, directionalLight, hemisphereLight, pointLight);
   }
 
-  initMesh() {
+  async initMesh() {
+    await initGltfModel();
     this.scene.add(model);
   }
 
@@ -146,6 +147,5 @@ class ThreeJSTemplate {
   }
 }
 
-await initGltfModel();
 // Initialize the template
 new ThreeJSTemplate();

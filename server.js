@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 // Create the server
 const server = http.createServer((req, res) => {
   // Set the file path based on the request URL
-  let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
+  let filePath = path.join(__dirname, 'public', req.url === '/' ? './dist/index.html' : req.url);
 
   // Get the file extension
   const extname = path.extname(filePath);

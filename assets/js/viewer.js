@@ -12,7 +12,7 @@ import { VerticalBlurShader } from "three/examples/jsm/shaders/VerticalBlurShade
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
-import Stats from 'three/addons/libs/stats.module.js';
+import Stats from "three/addons/libs/stats.module.js";
 
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 
@@ -20,23 +20,67 @@ import { RectAreaLightHelper } from "three/addons/helpers/RectAreaLightHelper.js
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 
-var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2;
+var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2, loadingManager;
 const stats = new Stats();
 
+// Deep clone function
+function deepClone(object) {
+  const clone = object.clone();
+
+  // Recursively clone geometry and material for each mesh
+  clone.traverse((node) => {
+    if (node.isMesh) {
+      node.geometry = node.geometry.clone();
+      node.material = node.material.clone();
+    }
+  });
+
+  return clone;
+}
+
 async function initGltfModel() {
-  gltfLoader = new GLTFLoader();
+  gltfLoader = new GLTFLoader(loadingManager);
   cyberHomeGltf = await gltfLoader.loadAsync(
     "assets/models/gltf/cyberpunk_micro-apartments/scene.gltf"
   );
-  const cyberHomeGltf2 = await gltfLoader.loadAsync(
-    "assets/models/gltf/cyberpunk_micro-apartments/scene.gltf"
-  );
   cyberHomeScene = cyberHomeGltf.scene;
-  cyberHomeScene2 = cyberHomeGltf2.scene;
+  cyberHomeScene2 = deepClone(cyberHomeScene);
+}
+
+function initLoadScreen() {
+  // Loading Screen HTML and CSS setup
+  const loadingScreen = document.createElement("div");
+  loadingScreen.style.position = "fixed";
+  loadingScreen.style.width = "100%";
+  loadingScreen.style.height = "100%";
+  loadingScreen.style.backgroundColor = "#000";
+  loadingScreen.style.display = "flex";
+  loadingScreen.style.justifyContent = "center";
+  loadingScreen.style.alignItems = "center";
+  loadingScreen.style.color = "#fff";
+  loadingScreen.style.fontSize = "24px";
+  loadingScreen.innerHTML = "Loading... 0%";
+  document.body.appendChild(loadingScreen);
+
+  // Loading Manager
+  loadingManager = new THREE.LoadingManager();
+
+  // Update the loading screen as assets load
+  loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+    const progress = Math.round((itemsLoaded / itemsTotal) * 100);
+    loadingScreen.innerHTML = `Loading... ${progress}%`;
+  };
+
+  // Remove the loading screen when all assets are loaded
+  loadingManager.onLoad = () => {
+    loadingScreen.style.display = "none";
+  };
 }
 
 class ThreeJSTemplate {
   constructor() {
+    initLoadScreen();
+
     this.initScene();
     this.initCamera();
     this.initRenderer();
@@ -62,7 +106,7 @@ class ThreeJSTemplate {
       new THREE.Vector2(window.innerWidth, window.innerHeight),
       0.5,
       0.2,
-      .95
+      0.95
     );
     this.mirrorComposer.addPass(glitchPass);
 
@@ -76,7 +120,7 @@ class ThreeJSTemplate {
 
     // const gui = new GUI();
     // gui.open();
-    document.body.appendChild( stats.dom );
+    document.body.appendChild(stats.dom);
   }
 
   initScene() {
@@ -146,12 +190,9 @@ class ThreeJSTemplate {
     this.mainScene.add(cyberHomeScene);
     this.mirrorScene.add(cyberHomeScene2);
 
-    const textureLoader = new THREE.TextureLoader();
+    const textureLoader = new THREE.TextureLoader(loadingManager);
     const texture = textureLoader.load(
-      "assets/models/gltf/cyberpunk_micro-apartments/textures/painted_concrete_02_diff_1k.jpg",
-      () => {
-        console.log("Texture loaded");
-      }
+      "assets/models/gltf/cyberpunk_micro-apartments/textures/painted_concrete_02_diff_1k.jpg"
     );
 
     // Add Ground Plane
@@ -184,6 +225,7 @@ class ThreeJSTemplate {
     this.controls.maxDistance = 40;
     this.controls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
     this.controls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
+    this.controls.enablePan = false;
   }
 
   addEventListeners() {
@@ -210,7 +252,7 @@ class ThreeJSTemplate {
   async animate() {
     // Update controls
     this.controls.update();
-    
+
     // Render
     stats.update();
 

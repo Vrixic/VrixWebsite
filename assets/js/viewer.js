@@ -91,32 +91,10 @@ class ThreeJSTemplate {
 
     RectAreaLightUniformsLib.init();
 
-    // this.rectLight1 = new THREE.RectAreaLight(0xff00ff, 20, 1, 7);
-    // this.rectLight1.position.set(-3.75, -0.75, -0.13);
-    // this.rectLight1.rotation.x = -Math.PI * 0.5;
-    // this.rectLight1.rotation.y = Math.PI * 0.5;
-    // //this.scene.add(this.rectLight1);
-
-    // this.rectLight2 = new THREE.RectAreaLight(0xffffff, 20, 1, 9.1);
-    // this.rectLight2.position.set(0.9, -0.75, 3.36);
-    // this.rectLight2.rotation.z = Math.PI * 0.5;
-    // this.rectLight2.rotation.y = Math.PI;
-    // //this.scene.add(this.rectLight2);
-
-    // this.rectLight3 = new THREE.RectAreaLight(0xffffff, 10, 1, 8.65);
-    // this.rectLight3.position.set(5.555, -0.75, -0.95);
-    // this.rectLight3.rotation.x = -Math.PI * 0.5;
-    // this.rectLight3.rotation.y = -Math.PI * 0.5;
-    //this.scene.add(this.rectLight3);
-
-    //this.scene.add( new RectAreaLightHelper( rectLight1 ) );
-    //this.scene.add(new RectAreaLightHelper(this.rectLight2));
-    //this.scene.add(new RectAreaLightHelper(this.rectLight3));
-
     const pl0 = new THREE.PointLight(0x11ffff, 100, 10000);
     pl0.position.y = 1;
 
-    this.scene.add(ambientLight, pl0);
+    this.mainScene.add(ambientLight, pl0);
   }
 
   async initMesh() {

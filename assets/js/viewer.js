@@ -11,6 +11,7 @@ import { HorizontalBlurShader } from "three/examples/jsm/shaders/HorizontalBlurS
 import { VerticalBlurShader } from "three/examples/jsm/shaders/VerticalBlurShader.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
 
 import Stats from "three/addons/libs/stats.module.js";
 
@@ -19,15 +20,33 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { RectAreaLightHelper } from "three/addons/helpers/RectAreaLightHelper.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import { FXAAEffect } from "postprocessing";
+
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
 var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2, loadingManager;
-var renderer, canvas, camera;
+var renderer, canvas, camera, camControls;
 /**
- * @type {THREE.Mesh} 
+ * @type {THREE.EffectComposer}
+ */
+var btnComposer, mainComposer;
+/**
+ * @type {THREE.Scene}
+ */
+var mainScene, btnsScene, textScene;
+/**
+ * @type {THREE.Mesh}
  */
 var projectsButton;
 
+// Create a Raycaster
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2(); // Normalized mouse coordinates
+
 const stats = new Stats();
+
+const sceneScale = 3;
 
 // Deep clone function
 function deepClone(object) {
@@ -83,6 +102,78 @@ function initLoadScreen() {
   };
 }
 
+function createTextMesh(textString, parent) {
+  // Load the font and create 3D text
+  const loader = new FontLoader(loadingManager);
+  loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function (font) {
+    const color = 0xffffff;
+
+    const matDark = new THREE.LineBasicMaterial({
+      color: color,
+      side: THREE.DoubleSide,
+    });
+
+    const matLite = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+    });
+
+    const message = textString;
+
+    const shapes = font.generateShapes(message, .25);
+
+    const geometry = new THREE.ShapeGeometry(shapes);
+
+    geometry.computeBoundingBox();
+
+    const xMid =
+      -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
+
+    geometry.translate(xMid, 0, 0);
+
+    // make line shape ( N.B. edge view remains visible )
+
+    const holeShapes = [];
+
+    for (let i = 0; i < shapes.length; i++) {
+      const shape = shapes[i];
+
+      if (shape.holes && shape.holes.length > 0) {
+        for (let j = 0; j < shape.holes.length; j++) {
+          const hole = shape.holes[j];
+          holeShapes.push(hole);
+        }
+      }
+    }
+
+    shapes.push.apply(shapes, holeShapes);
+
+    const lineText = new THREE.Object3D();
+
+    for (let i = 0; i < shapes.length; i++) {
+      const shape = shapes[i];
+
+      const points = shape.getPoints();
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+      geometry.translate(xMid, 0, 0);
+
+      const lineMesh = new THREE.Line(geometry, matDark);
+      lineText.add(lineMesh);
+    }
+
+    // Disable raycasting collision detection for this object
+    lineText.raycast = null;
+    lineText.position.x += .1;
+    lineText.position.y -= .125;
+    lineText.rotation.y = Math.PI * 0.5;
+    parent.add(lineText);
+    return lineText;
+  }); //end load function
+}
+
 class ThreeJSTemplate {
   constructor() {
     initLoadScreen();
@@ -94,7 +185,23 @@ class ThreeJSTemplate {
     this.initMesh();
     this.initControls();
     this.addEventListeners();
+    this.initMirrorComposer();
+    this.initBtnComposer();
+    this.initMainComposer();
 
+    renderer.autoClear = false;
+
+    mainScene.scale.set(sceneScale, sceneScale, sceneScale);
+    btnsScene.scale.set(sceneScale, sceneScale, sceneScale);
+
+    this.animate();
+
+    // const gui = new GUI();
+    // gui.open();
+    document.body.appendChild(stats.dom);
+  }
+
+  initMirrorComposer() {
     this.mirrorComposer = new EffectComposer(renderer);
 
     const mirrorrp = new RenderPass(this.mirrorScene, camera);
@@ -119,18 +226,44 @@ class ThreeJSTemplate {
     const op0 = new OutputPass();
     this.mirrorComposer.addPass(op0);
     this.mirrorComposer.renderToScreen = true;
+  }
 
-    renderer.autoClear = false;
+  initBtnComposer() {
+    btnComposer = new EffectComposer(renderer);
+    const btnrp = new RenderPass(btnsScene, camera);
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.25,
+      0.1,
+      0.1
+    );
+    const fxaaPass = new ShaderPass(FXAAShader);
+    const op = new OutputPass();
 
-    this.animate();
+    btnComposer.renderToScreen = true;
+    btnComposer.addPass(btnrp);
+    btnComposer.addPass(fxaaPass);
+    btnComposer.addPass(bloomPass);
+    btnComposer.addPass(op);
+  }
 
-    // const gui = new GUI();
-    // gui.open();
-    document.body.appendChild(stats.dom);
+  initMainComposer() {
+    mainComposer = new EffectComposer(renderer);
+    const mainrp = new RenderPass(mainScene, camera);
+    mainrp.autoClear = false;
+    const fxaaPass = new ShaderPass(FXAAShader);
+    const op = new OutputPass();
+
+    mainComposer.autoClear = false;
+    mainComposer.renderToScreen = true;
+    mainComposer.addPass(mainrp);
+    mainComposer.addPass(fxaaPass);
+    mainComposer.addPass(op);
   }
 
   initScene() {
-    this.mainScene = new THREE.Scene();
+    mainScene = new THREE.Scene();
+    btnsScene = new THREE.Scene();
     this.mirrorScene = new THREE.Scene();
     this.clock = new THREE.Clock();
   }
@@ -152,19 +285,7 @@ class ThreeJSTemplate {
     camera.position.z = 0.5;
     camera.lookAt(0, 0, 0);
 
-    // Create an orthographic camera
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    const viewSize = 2; // Size of the view (2x2)
-    this.orthoCamera = new THREE.OrthographicCamera(
-      (-viewSize * aspectRatio) / 2, // left
-      (viewSize * aspectRatio) / 2, // right
-      viewSize / 2, // top
-      -viewSize / 2, // bottom
-      0.1, // near plane
-      100 // far plane
-    );
-
-    this.mainScene.add(camera);
+    mainScene.add(camera);
     this.mirrorScene.add(camera);
   }
 
@@ -185,15 +306,15 @@ class ThreeJSTemplate {
 
     RectAreaLightUniformsLib.init();
 
-    const pl0 = new THREE.PointLight(0x11ffff, 250, 1000);
+    const pl0 = new THREE.PointLight(0x11ffff, 250 * sceneScale, 1000 * sceneScale);
     pl0.position.y = 1;
 
-    this.mainScene.add(ambientLight, pl0);
+    mainScene.add(ambientLight, pl0);
   }
 
   async initMesh() {
     await initGltfModel();
-    this.mainScene.add(cyberHomeScene);
+    mainScene.add(cyberHomeScene);
     this.mirrorScene.add(cyberHomeScene2);
 
     const textureLoader = new THREE.TextureLoader(loadingManager);
@@ -222,28 +343,34 @@ class ThreeJSTemplate {
     this.groundPlane = new THREE.Mesh(plane, material0);
     this.groundPlane.position.y = 0.05;
     this.groundPlane.rotateX(-Math.PI / 2);
-    this.mainScene.add(this.groundPlane);
+    mainScene.add(this.groundPlane);
 
     const buttonMaterial = new THREE.MeshBasicMaterial({
       color: new THREE.Color(0xff00ff),
     });
+    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
     const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
     projectsButton = new THREE.Mesh(buttonMesh, buttonMaterial);
+
+    btnsScene.add(projectsButton);
+    createTextMesh("Projects", projectsButton);
+
+    projectsButton.position.y = 6;
+
     projectsButton.position.x = 2.5;
     projectsButton.position.y = -0.5;
     projectsButton.rotation.z = Math.PI * 0.25;
-    this.mainScene.add(projectsButton);
   }
 
   initControls() {
-    this.controls = new OrbitControls(camera, canvas);
-    this.controls.enableDamping = true;
-    this.controls.maxDistance = 40;
-    this.controls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
-    this.controls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
-    this.controls.enablePan = false;
-    this.controls.rotateSpeed = 0.25;
-    this.controls.zoomSpeed = 0.25;
+    camControls = new OrbitControls(camera, canvas);
+    camControls.enableDamping = true;
+    camControls.maxDistance = 40;
+    camControls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
+    camControls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
+    camControls.enablePan = false;
+    camControls.rotateSpeed = 0.25;
+    camControls.zoomSpeed = 0.25;
   }
 
   addEventListeners() {
@@ -269,7 +396,7 @@ class ThreeJSTemplate {
 
   animate() {
     // Update controls
-    this.controls.update();
+    camControls.update();
 
     const cForwardVector = new THREE.Vector3();
     camera.getWorldDirection(cForwardVector);
@@ -288,12 +415,82 @@ class ThreeJSTemplate {
     renderer.clear();
     //this.mirrorComposer.render();
     //renderer.clearDepth();
-    renderer.render(this.mainScene, camera);
+    btnComposer.render();
+    renderer.clearDepth();
+    renderer.render(mainScene, camera);
     stats.end();
     // Call animate again on the next frame
     window.requestAnimationFrame(() => this.animate());
   }
 }
+
+/**
+ * @type {THREE.Object3D<THREE.Object3DEventMap>}
+ */
+var cIntersectedObject;
+var bMouseDown;
+
+function OnHoverStart() {
+  cIntersectedObject.material.color.set(0x00ffff); // Change color to pink
+}
+
+function OnHoverEnd() {
+  cIntersectedObject.material.color.set(0xff00ff); // Change color to pink
+  camControls.rotateSpeed = 0.25;
+}
+
+function OnMouseDown() {
+  cIntersectedObject.material.color.set(0x00ff00); // Change color to pink
+  camControls.rotateSpeed = 0.0;
+}
+
+function OnMouseUp() {
+  cIntersectedObject.material.color.set(0xff00ff); // Change color to pink
+  camControls.rotateSpeed = 0.25;
+}
+window.addEventListener("mousemove", (event) => {
+  // Convert mouse position to normalized device coordinates (-1 to +1)
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // Update the raycaster with the camera and mouse position
+  raycaster.setFromCamera(mouse, camera);
+
+  const intersected = raycaster.intersectObject(btnsScene);
+  if (intersected.length > 0) {
+    if (!bMouseDown) {
+      // Hover End
+      if (
+        cIntersectedObject != intersected[0].object &&
+        cIntersectedObject != null
+      ) {
+        OnHoverEnd(cIntersectedObject);
+      }
+
+      // Hover Start
+      cIntersectedObject = intersected[0].object;
+      OnHoverStart(cIntersectedObject);
+    }
+  } else if (cIntersectedObject != null) {
+    // Hover End
+    OnHoverEnd(cIntersectedObject);
+    cIntersectedObject = null;
+  }
+});
+window.addEventListener("mousedown", (event) => {
+  // Check if the ray intersects with the cube
+  if (cIntersectedObject != null) {
+    OnMouseDown(cIntersectedObject);
+  }
+  bMouseDown = true;
+});
+window.addEventListener("mouseup", (event) => {
+  // Check if the ray intersects with the cube
+  if (cIntersectedObject != null) {
+    OnMouseUp(cIntersectedObject);
+  }
+  bMouseDown = false;
+});
 
 // Initialize the template
 new ThreeJSTemplate();

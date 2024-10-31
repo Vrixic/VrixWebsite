@@ -21,6 +21,12 @@ import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUnifo
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 
 var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2, loadingManager;
+var renderer, canvas, camera;
+/**
+ * @type {THREE.Mesh} 
+ */
+var projectsButton;
+
 const stats = new Stats();
 
 // Deep clone function
@@ -89,9 +95,9 @@ class ThreeJSTemplate {
     this.initControls();
     this.addEventListeners();
 
-    this.mirrorComposer = new EffectComposer(this.renderer);
+    this.mirrorComposer = new EffectComposer(renderer);
 
-    const mirrorrp = new RenderPass(this.mirrorScene, this.camera);
+    const mirrorrp = new RenderPass(this.mirrorScene, camera);
     this.mirrorComposer.addPass(mirrorrp);
 
     this.hBlur = new ShaderPass(HorizontalBlurShader);
@@ -114,7 +120,7 @@ class ThreeJSTemplate {
     this.mirrorComposer.addPass(op0);
     this.mirrorComposer.renderToScreen = true;
 
-    this.renderer.autoClear = false;
+    renderer.autoClear = false;
 
     this.animate();
 
@@ -134,17 +140,17 @@ class ThreeJSTemplate {
       width: window.innerWidth,
       height: window.innerHeight,
     };
-    this.camera = new THREE.PerspectiveCamera(
+    camera = new THREE.PerspectiveCamera(
       75,
       this.sizes.width / this.sizes.height,
       0.1,
       100
     );
 
-    this.camera.position.x = -10;
-    this.camera.position.y = 7.5;
-    this.camera.position.z = 15;
-    this.camera.lookAt(0, 0, 0);
+    camera.position.x = 15;
+    camera.position.y = 6;
+    camera.position.z = 0.5;
+    camera.lookAt(0, 0, 0);
 
     // Create an orthographic camera
     const aspectRatio = window.innerWidth / window.innerHeight;
@@ -158,19 +164,19 @@ class ThreeJSTemplate {
       100 // far plane
     );
 
-    this.mainScene.add(this.camera);
-    this.mirrorScene.add(this.camera);
+    this.mainScene.add(camera);
+    this.mirrorScene.add(camera);
   }
 
   initRenderer() {
-    this.canvas = document.querySelector("canvas.webgl");
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
+    canvas = document.querySelector("canvas.webgl");
+    renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
       alpha: true,
     });
-    this.renderer.setSize(this.sizes.width, this.sizes.height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x000000);
+    renderer.setSize(this.sizes.width, this.sizes.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000);
   }
 
   initLights() {
@@ -217,15 +223,27 @@ class ThreeJSTemplate {
     this.groundPlane.position.y = 0.05;
     this.groundPlane.rotateX(-Math.PI / 2);
     this.mainScene.add(this.groundPlane);
+
+    const buttonMaterial = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(0xff00ff),
+    });
+    const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
+    projectsButton = new THREE.Mesh(buttonMesh, buttonMaterial);
+    projectsButton.position.x = 2.5;
+    projectsButton.position.y = -0.5;
+    projectsButton.rotation.z = Math.PI * 0.25;
+    this.mainScene.add(projectsButton);
   }
 
   initControls() {
-    this.controls = new OrbitControls(this.camera, this.canvas);
+    this.controls = new OrbitControls(camera, canvas);
     this.controls.enableDamping = true;
     this.controls.maxDistance = 40;
     this.controls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
     this.controls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
     this.controls.enablePan = false;
+    this.controls.rotateSpeed = 0.25;
+    this.controls.zoomSpeed = 0.25;
   }
 
   addEventListeners() {
@@ -236,11 +254,11 @@ class ThreeJSTemplate {
     this.sizes.width = window.innerWidth;
     this.sizes.height = window.innerHeight;
 
-    this.camera.aspect = this.sizes.width / this.sizes.height;
-    this.camera.updateProjectionMatrix();
+    camera.aspect = this.sizes.width / this.sizes.height;
+    camera.updateProjectionMatrix();
 
-    this.renderer.setSize(this.sizes.width, this.sizes.height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(this.sizes.width, this.sizes.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     this.mirrorComposer.setSize(this.sizes.width, this.sizes.height);
     this.mirrorComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -249,19 +267,28 @@ class ThreeJSTemplate {
     this.vBlur.uniforms.v.value = (1 / window.innerHeight) * 2;
   }
 
-  async animate() {
+  animate() {
     // Update controls
     this.controls.update();
+
+    const cForwardVector = new THREE.Vector3();
+    camera.getWorldDirection(cForwardVector);
+    if (projectsButton != null) {
+      if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
+        projectsButton.visible = true;
+      } else {
+        projectsButton.visible = false;
+      }
+    }
 
     // Render
     stats.update();
 
     stats.begin();
-    this.renderer.clear();
-    await this.mirrorComposer.render();
-
-    this.renderer.clearDepth();
-    await this.renderer.render(this.mainScene, this.camera);
+    renderer.clear();
+    //this.mirrorComposer.render();
+    //renderer.clearDepth();
+    renderer.render(this.mainScene, camera);
     stats.end();
     // Call animate again on the next frame
     window.requestAnimationFrame(() => this.animate());

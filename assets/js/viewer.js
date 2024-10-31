@@ -12,6 +12,8 @@ import { VerticalBlurShader } from "three/examples/jsm/shaders/VerticalBlurShade
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
+import Stats from 'three/addons/libs/stats.module.js';
+
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 
 import { RectAreaLightHelper } from "three/addons/helpers/RectAreaLightHelper.js";
@@ -19,6 +21,8 @@ import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUnifo
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 
 var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2;
+const stats = new Stats();
+
 async function initGltfModel() {
   gltfLoader = new GLTFLoader();
   cyberHomeGltf = await gltfLoader.loadAsync(
@@ -70,9 +74,9 @@ class ThreeJSTemplate {
 
     this.animate();
 
-    const gui = new GUI();
-
-    gui.open();
+    // const gui = new GUI();
+    // gui.open();
+    document.body.appendChild( stats.dom );
   }
 
   initScene() {
@@ -206,14 +210,17 @@ class ThreeJSTemplate {
   async animate() {
     // Update controls
     this.controls.update();
-
+    
     // Render
+    stats.update();
+
+    stats.begin();
     this.renderer.clear();
     await this.mirrorComposer.render();
 
     this.renderer.clearDepth();
     await this.renderer.render(this.mainScene, this.camera);
-
+    stats.end();
     // Call animate again on the next frame
     window.requestAnimationFrame(() => this.animate());
   }

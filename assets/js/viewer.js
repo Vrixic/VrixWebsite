@@ -56,6 +56,9 @@ const stats = new Stats();
 
 const sceneScale = 3;
 
+var bGoingToComputer = false, camPrevLocation = new THREE.Vector3();
+var camProgress = 0;
+
 // Deep clone function
 function deepClone(object) {
   const clone = object.clone();
@@ -185,6 +188,8 @@ function createTextMesh(textString, parent) {
   ); //end load function
 }
 
+var cameraComputerLocation = new THREE.Vector3(1.9, 10.5, 1.1);
+var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 class ThreeJSTemplate {
   constructor() {
     initLoadScreen();
@@ -207,9 +212,28 @@ class ThreeJSTemplate {
 
     this.animate();
 
-    // const gui = new GUI();
-    // gui.open();
-    document.body.appendChild(stats.dom);
+  //   const gui = new GUI();
+  //   // Parameters object to control via GUI
+  //   const params = {
+  //     targetObjectLookX: cameraComputerLookLocation.x,
+  //     targetObjectLookY: cameraComputerLookLocation.y,
+  //     targetObjectLookZ: cameraComputerLookLocation.z,
+  //     targetX: cameraComputerLocation.x,
+  //     targetY: cameraComputerLocation.y,
+  //     targetZ: cameraComputerLocation.z,
+  // };
+
+  // // Camera position controls
+  //   gui.add(params, 'targetObjectLookX', -50, 50).onChange(value => cameraComputerLookLocation.x = value);
+  //   gui.add(params, 'targetObjectLookY', -50, 50).onChange(value => cameraComputerLookLocation.y = value);
+  //   gui.add(params, 'targetObjectLookZ', -50, 50).onChange(value => cameraComputerLookLocation.z = value);
+
+  // // Target position controls
+  //   gui.add(params, 'targetX', -50, 50).onChange(value => cameraComputerLocation.x = value);
+  //   gui.add(params, 'targetY', -50, 50).onChange(value => cameraComputerLocation.y = value);
+  //   gui.add(params, 'targetZ', -50, 50).onChange(value => cameraComputerLocation.z = value);
+  //   gui.open();
+  //   document.body.appendChild(stats.dom);
   }
 
   initMirrorComposer() {
@@ -411,8 +435,6 @@ class ThreeJSTemplate {
   }
 
   animate() {
-    // Update controls
-    camControls.update();
 
     const cForwardVector = new THREE.Vector3();
     camera.getWorldDirection(cForwardVector);
@@ -422,6 +444,36 @@ class ThreeJSTemplate {
       } else {
         projectsButton.visible = false;
       }
+    }
+
+    if (bGoingToComputer) {
+      // Define where to position the camera to focus nicely on the target
+      camera.position.lerp(cameraComputerLocation, 0.05); // Smoothly interpolate the position
+
+      // Create a temporary camera to calculate target quaternion
+      const tempCamera = camera.clone();
+      tempCamera.lookAt(cameraComputerLookLocation);
+
+      // Smoothly interpolate the camera rotation
+      camera.quaternion.slerp(tempCamera.quaternion, 0.05);
+
+      const l = Math.abs(new THREE.Vector3().subVectors(cameraComputerLocation, camera.position).length());
+      if(l < 0.01)
+      {
+        bGoingToComputer = false;
+
+        camControls.target.copy(cameraComputerLookLocation);
+        camControls.saveState();
+        camControls.reset();
+        
+        const elementWithClass = document.querySelector("div#wrapper");
+        if (elementWithClass) {
+            elementWithClass.style.display = "";
+        }
+      }
+    } else {
+      // Update controls
+      camControls.update();
     }
 
     // Render
@@ -464,6 +516,10 @@ function OnHoverEnd() {
 function OnMouseDown() {
   cIntersectedObject.material.color.set(0x00ff00); // Change color to pink
   camControls.rotateSpeed = 0.0;
+
+  camPrevLocation.copy(camera.position);
+  bGoingToComputer = true;
+  camProgress = 0;
 }
 
 function OnMouseUp() {

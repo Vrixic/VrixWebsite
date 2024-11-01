@@ -26,7 +26,7 @@ import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
 var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2, loadingManager;
-var renderer, canvas, camera, camControls;
+var renderer, canvas, camControls;
 /**
  * @type {THREE.EffectComposer}
  */
@@ -38,7 +38,15 @@ var mainScene, btnsScene, textScene;
 /**
  * @type {THREE.Mesh}
  */
-var projectsButton;
+var projectsButton, projectsLineText;
+/**
+ * @type {THREE.Clock}
+ */
+var clock;
+/**
+ * @type {THREE.Camera}
+ */
+var camera;
 
 // Create a Raycaster
 const raycaster = new THREE.Raycaster();
@@ -105,73 +113,76 @@ function initLoadScreen() {
 function createTextMesh(textString, parent) {
   // Load the font and create 3D text
   const loader = new FontLoader(loadingManager);
-  loader.load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", function (font) {
-    const color = 0xffffff;
+  loader.load(
+    "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
+    function (font) {
+      const color = 0xffffff;
 
-    const matDark = new THREE.LineBasicMaterial({
-      color: color,
-      side: THREE.DoubleSide,
-    });
+      const matDark = new THREE.LineBasicMaterial({
+        color: color,
+        side: THREE.DoubleSide,
+      });
 
-    const matLite = new THREE.MeshBasicMaterial({
-      color: color,
-      transparent: true,
-      opacity: 0.4,
-      side: THREE.DoubleSide,
-    });
+      const matLite = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.4,
+        side: THREE.DoubleSide,
+      });
 
-    const message = textString;
+      const message = textString;
 
-    const shapes = font.generateShapes(message, .25);
+      const shapes = font.generateShapes(message, 0.25);
 
-    const geometry = new THREE.ShapeGeometry(shapes);
+      const geometry = new THREE.ShapeGeometry(shapes);
 
-    geometry.computeBoundingBox();
+      geometry.computeBoundingBox();
 
-    const xMid =
-      -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
-
-    geometry.translate(xMid, 0, 0);
-
-    // make line shape ( N.B. edge view remains visible )
-
-    const holeShapes = [];
-
-    for (let i = 0; i < shapes.length; i++) {
-      const shape = shapes[i];
-
-      if (shape.holes && shape.holes.length > 0) {
-        for (let j = 0; j < shape.holes.length; j++) {
-          const hole = shape.holes[j];
-          holeShapes.push(hole);
-        }
-      }
-    }
-
-    shapes.push.apply(shapes, holeShapes);
-
-    const lineText = new THREE.Object3D();
-
-    for (let i = 0; i < shapes.length; i++) {
-      const shape = shapes[i];
-
-      const points = shape.getPoints();
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const xMid =
+        -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
 
       geometry.translate(xMid, 0, 0);
 
-      const lineMesh = new THREE.Line(geometry, matDark);
-      lineText.add(lineMesh);
-    }
+      // make line shape ( N.B. edge view remains visible )
 
-    // Disable raycasting collision detection for this object
-    lineText.raycast = null;
-    lineText.position.x += .1;
-    lineText.position.y -= .125;
-    lineText.rotation.y = Math.PI * 0.5;
-    parent.add(lineText);
-    return lineText;
-  }); //end load function
+      const holeShapes = [];
+
+      for (let i = 0; i < shapes.length; i++) {
+        const shape = shapes[i];
+
+        if (shape.holes && shape.holes.length > 0) {
+          for (let j = 0; j < shape.holes.length; j++) {
+            const hole = shape.holes[j];
+            holeShapes.push(hole);
+          }
+        }
+      }
+
+      shapes.push.apply(shapes, holeShapes);
+
+      const lineText = new THREE.Object3D();
+
+      for (let i = 0; i < shapes.length; i++) {
+        const shape = shapes[i];
+
+        const points = shape.getPoints();
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+        geometry.translate(xMid, 0, 0);
+
+        const lineMesh = new THREE.Line(geometry, matDark);
+        lineText.add(lineMesh);
+      }
+
+      lineText.position.x += 0.1;
+      lineText.position.y -= 0.125;
+      lineText.rotation.y = Math.PI * 0.5;
+
+      projectsLineText = lineText;
+      parent.add(lineText);
+      return lineText;
+    }
+  ); //end load function
 }
 
 class ThreeJSTemplate {
@@ -233,9 +244,9 @@ class ThreeJSTemplate {
     const btnrp = new RenderPass(btnsScene, camera);
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.25,
-      0.1,
-      0.1
+      0.15,
+      0.4,
+      0.05
     );
     const fxaaPass = new ShaderPass(FXAAShader);
     const op = new OutputPass();
@@ -265,7 +276,7 @@ class ThreeJSTemplate {
     mainScene = new THREE.Scene();
     btnsScene = new THREE.Scene();
     this.mirrorScene = new THREE.Scene();
-    this.clock = new THREE.Clock();
+    clock = new THREE.Clock();
   }
 
   initCamera() {
@@ -306,7 +317,11 @@ class ThreeJSTemplate {
 
     RectAreaLightUniformsLib.init();
 
-    const pl0 = new THREE.PointLight(0x11ffff, 250 * sceneScale, 1000 * sceneScale);
+    const pl0 = new THREE.PointLight(
+      0x11ffff,
+      250 * sceneScale,
+      1000 * sceneScale
+    );
     pl0.position.y = 1;
 
     mainScene.add(ambientLight, pl0);
@@ -355,8 +370,6 @@ class ThreeJSTemplate {
     btnsScene.add(projectsButton);
     createTextMesh("Projects", projectsButton);
 
-    projectsButton.position.y = 6;
-
     projectsButton.position.x = 2.5;
     projectsButton.position.y = -0.5;
     projectsButton.rotation.z = Math.PI * 0.25;
@@ -389,6 +402,9 @@ class ThreeJSTemplate {
 
     this.mirrorComposer.setSize(this.sizes.width, this.sizes.height);
     this.mirrorComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    btnComposer.setSize(this.sizes.width, this.sizes.height);
+    btnComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     this.hBlur.uniforms.h.value = (1 / window.innerWidth) * 2;
     this.vBlur.uniforms.v.value = (1 / window.innerHeight) * 2;
@@ -428,15 +444,21 @@ class ThreeJSTemplate {
  * @type {THREE.Object3D<THREE.Object3DEventMap>}
  */
 var cIntersectedObject;
-var bMouseDown;
+var bMouseDown, bIsHovering;
 
 function OnHoverStart() {
   cIntersectedObject.material.color.set(0x00ffff); // Change color to pink
+  cIntersectedObject.scale.x = 1.15;
+  cIntersectedObject.scale.y = 1.15;
+  cIntersectedObject.scale.z = 1.15;
 }
 
 function OnHoverEnd() {
   cIntersectedObject.material.color.set(0xff00ff); // Change color to pink
   camControls.rotateSpeed = 0.25;
+  cIntersectedObject.scale.x = 1;
+  cIntersectedObject.scale.y = 1;
+  cIntersectedObject.scale.z = 1;
 }
 
 function OnMouseDown() {
@@ -457,24 +479,33 @@ window.addEventListener("mousemove", (event) => {
   raycaster.setFromCamera(mouse, camera);
 
   const intersected = raycaster.intersectObject(btnsScene);
-  if (intersected.length > 0) {
+
+  const collidableObjects = intersected.filter((intersect) => {
+    return intersect.object.id == projectsButton.id;
+  });
+
+  if (collidableObjects.length > 0) {
     if (!bMouseDown) {
       // Hover End
       if (
-        cIntersectedObject != intersected[0].object &&
+        cIntersectedObject != collidableObjects[0].object &&
         cIntersectedObject != null
       ) {
         OnHoverEnd(cIntersectedObject);
       }
 
       // Hover Start
-      cIntersectedObject = intersected[0].object;
-      OnHoverStart(cIntersectedObject);
+      if (!bIsHovering) {
+        cIntersectedObject = collidableObjects[0].object;
+        OnHoverStart(cIntersectedObject);
+        bIsHovering = true;
+      }
     }
   } else if (cIntersectedObject != null) {
     // Hover End
     OnHoverEnd(cIntersectedObject);
     cIntersectedObject = null;
+    bIsHovering = false;
   }
 });
 window.addEventListener("mousedown", (event) => {

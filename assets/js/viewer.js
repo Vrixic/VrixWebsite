@@ -56,8 +56,15 @@ const stats = new Stats();
 
 const sceneScale = 3;
 
-var bGoingToComputer = false, camPrevLocation = new THREE.Vector3();
+var bGoingToComputer = false,
+  bReturnToScene = false,
+  bViewingComputer = false,
+  camPrevLocation = new THREE.Vector3(),
+  camPrevRotation = new THREE.Quaternion();
 var camProgress = 0;
+
+var cameraComputerLocation = new THREE.Vector3(1.5, 10.5, 1.1);
+var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 
 // Deep clone function
 function deepClone(object) {
@@ -187,12 +194,33 @@ function createTextMesh(textString, parent) {
     }
   ); //end load function
 }
+function OnExitButtonClick() {
+  if (!bReturnToScene) {
+    bReturnToScene = true;
 
-var cameraComputerLocation = new THREE.Vector3(1.9, 10.5, 1.1);
-var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
+    const elementWithClass = document.querySelector("div#wrapper");
+    if (elementWithClass) {
+      elementWithClass.style.display = "none";
+    }
+  }
+}
+
 class ThreeJSTemplate {
   constructor() {
     initLoadScreen();
+
+    const exitButton = document.querySelector(".returnToScene");
+    // Check if the element exists, then add the onclick event
+    if (exitButton) {
+      exitButton.onclick = function () {
+        OnExitButtonClick();
+      };
+      exitButton.addEventListener("touchstart", function () {
+        OnExitButtonClick();
+      });
+    } else {
+      console.error("Element with class 'returnToScene' not found.");
+    }
 
     this.initScene();
     this.initCamera();
@@ -212,28 +240,20 @@ class ThreeJSTemplate {
 
     this.animate();
 
-  //   const gui = new GUI();
-  //   // Parameters object to control via GUI
-  //   const params = {
-  //     targetObjectLookX: cameraComputerLookLocation.x,
-  //     targetObjectLookY: cameraComputerLookLocation.y,
-  //     targetObjectLookZ: cameraComputerLookLocation.z,
-  //     targetX: cameraComputerLocation.x,
-  //     targetY: cameraComputerLocation.y,
-  //     targetZ: cameraComputerLocation.z,
-  // };
+    //   const gui = new GUI();
+    //   // Parameters object to control via GUI
+    //   const params = {
+    //     targetObjectLookX: cameraComputerLookLocation.x,
+    //     targetObjectLookY: cameraComputerLookLocation.y,
+    //     targetObjectLookZ: cameraComputerLookLocation.z,
+    // };
 
-  // // Camera position controls
-  //   gui.add(params, 'targetObjectLookX', -50, 50).onChange(value => cameraComputerLookLocation.x = value);
-  //   gui.add(params, 'targetObjectLookY', -50, 50).onChange(value => cameraComputerLookLocation.y = value);
-  //   gui.add(params, 'targetObjectLookZ', -50, 50).onChange(value => cameraComputerLookLocation.z = value);
-
-  // // Target position controls
-  //   gui.add(params, 'targetX', -50, 50).onChange(value => cameraComputerLocation.x = value);
-  //   gui.add(params, 'targetY', -50, 50).onChange(value => cameraComputerLocation.y = value);
-  //   gui.add(params, 'targetZ', -50, 50).onChange(value => cameraComputerLocation.z = value);
-  //   gui.open();
-  //   document.body.appendChild(stats.dom);
+    // // Camera position controls
+    //   gui.add(params, 'targetObjectLookX', -50, 50).onChange(value => cameraComputerLookLocation.x = value);
+    //   gui.add(params, 'targetObjectLookY', -50, 50).onChange(value => cameraComputerLookLocation.y = value);
+    //   gui.add(params, 'targetObjectLookZ', -50, 50).onChange(value => cameraComputerLookLocation.z = value);
+    //   gui.open();
+    //   document.body.appendChild(stats.dom);
   }
 
   initMirrorComposer() {
@@ -315,8 +335,8 @@ class ThreeJSTemplate {
       100
     );
 
-    camera.position.x = 15;
-    camera.position.y = 6;
+    camera.position.x = 25;
+    camera.position.y = 12.5;
     camera.position.z = 0.5;
     camera.lookAt(0, 0, 0);
 
@@ -435,7 +455,6 @@ class ThreeJSTemplate {
   }
 
   animate() {
-
     const cForwardVector = new THREE.Vector3();
     camera.getWorldDirection(cForwardVector);
     if (projectsButton != null) {
@@ -457,22 +476,50 @@ class ThreeJSTemplate {
       // Smoothly interpolate the camera rotation
       camera.quaternion.slerp(tempCamera.quaternion, 0.05);
 
-      const l = Math.abs(new THREE.Vector3().subVectors(cameraComputerLocation, camera.position).length());
-      if(l < 0.01)
-      {
+      const l = Math.abs(
+        new THREE.Vector3()
+          .subVectors(cameraComputerLocation, camera.position)
+          .length()
+      );
+      if (l < 0.01) {
         bGoingToComputer = false;
+        bViewingComputer = true;
 
         camControls.target.copy(cameraComputerLookLocation);
         camControls.saveState();
         camControls.reset();
-        
+
         const elementWithClass = document.querySelector("div#wrapper");
         if (elementWithClass) {
-            elementWithClass.style.display = "";
+          elementWithClass.style.display = "";
         }
       }
-    } else {
-      // Update controls
+    }
+
+    if (bReturnToScene) {
+      camera.position.lerp(camPrevLocation, 0.05); // Smoothly interpolate the position
+      camera.quaternion.slerp(camPrevRotation, 0.05);
+
+      const l = Math.abs(
+        new THREE.Vector3()
+          .subVectors(camPrevLocation, camera.position)
+          .length()
+      );
+      if (l < 0.01) {
+        bReturnToScene = false;
+        bViewingComputer = false;
+
+        camControls.target.set(0, 0, 0);
+        camControls.saveState();
+        camControls.reset();
+      }
+    }
+
+    camControls.enabled =
+      !bViewingComputer && !bGoingToComputer && !bReturnToScene;
+
+    // Update controls
+    if (camControls.enabled) {
       camControls.update();
     }
 
@@ -518,6 +565,7 @@ function OnMouseDown() {
   camControls.rotateSpeed = 0.0;
 
   camPrevLocation.copy(camera.position);
+  camPrevRotation.copy(camera.quaternion);
   bGoingToComputer = true;
   camProgress = 0;
 }
@@ -526,14 +574,7 @@ function OnMouseUp() {
   cIntersectedObject.material.color.set(0xff00ff); // Change color to pink
   camControls.rotateSpeed = 0.25;
 }
-window.addEventListener("mousemove", (event) => {
-  // Convert mouse position to normalized device coordinates (-1 to +1)
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  // Update the raycaster with the camera and mouse position
-  raycaster.setFromCamera(mouse, camera);
-
+function OnMouseMove() {
   const intersected = raycaster.intersectObject(btnsScene);
 
   const collidableObjects = intersected.filter((intersect) => {
@@ -563,6 +604,15 @@ window.addEventListener("mousemove", (event) => {
     cIntersectedObject = null;
     bIsHovering = false;
   }
+}
+window.addEventListener("mousemove", (event) => {
+  // Convert mouse position to normalized device coordinates (-1 to +1)
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // Update the raycaster with the camera and mouse position
+  raycaster.setFromCamera(mouse, camera);
+  OnMouseMove();
 });
 window.addEventListener("mousedown", (event) => {
   // Check if the ray intersects with the cube
@@ -570,6 +620,15 @@ window.addEventListener("mousedown", (event) => {
     OnMouseDown(cIntersectedObject);
   }
   bMouseDown = true;
+});
+window.addEventListener("touchend", (event) => {
+  event.preventDefault();
+  // Calculate touch position in normalized device coordinates
+  mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+  // Update the raycaster with the touch position
+  raycaster.setFromCamera(mouse, camera);
+  OnMouseMove();
 });
 window.addEventListener("mouseup", (event) => {
   // Check if the ray intersects with the cube

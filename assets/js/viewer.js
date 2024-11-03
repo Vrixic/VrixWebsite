@@ -640,8 +640,9 @@ window.addEventListener("mouseup", (event) => {
 
 // Initialize the template
 new ThreeJSTemplate();
-if (renderer) {
-  renderer.domElement.addEventListener("touchend", function (event) {
+if (renderer) {  
+  renderer.domElement.addEventListener("touchstart", function (event) {
+    event.preventDefault();
     // Calculate touch position in normalized device coordinates
     mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;

@@ -638,27 +638,16 @@ window.addEventListener("mouseup", (event) => {
   bMouseDown = false;
 });
 
-// function onTouch(event) {
-//   event.preventDefault();
-//   // Calculate touch position in normalized device coordinates
-//   // mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
-//   // mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
-//   // // Update the raycaster with the touch position
-//   // raycaster.setFromCamera(mouse, camera);
-//   // OnMouseMove();
-// };
-// window.addEventListener("touchstart", function(event) {
-//   event.preventDefault();
-//   OnMouseDown();
-// }, false);
-
 // Initialize the template
 new ThreeJSTemplate();
-if(renderer)
-{
-  renderer.domElement.addEventListener("click", function() {
-    alert("Screen tapped or clicked!");
-    cIntersectedObject = projectsButton;
+if (renderer) {
+  renderer.domElement.addEventListener("touchend", function (event) {
+    // Calculate touch position in normalized device coordinates
+    mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+    // Update the raycaster with the touch position
+    raycaster.setFromCamera(mouse, camera);
+    OnMouseMove();
     OnMouseDown();
   });
 }

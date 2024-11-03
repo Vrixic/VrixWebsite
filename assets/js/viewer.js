@@ -222,6 +222,13 @@ class ThreeJSTemplate {
       console.error("Element with class 'returnToScene' not found.");
     }
 
+    alert("Alerts work!");
+    if ("ontouchstart" in window) {
+      alert("Touch support detected!");
+    } else {
+      alert("No touch support.");
+    }
+
     this.initScene();
     this.initCamera();
     this.initRenderer();

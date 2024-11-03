@@ -624,7 +624,7 @@ window.addEventListener("mousedown", (event) => {
 window.addEventListener("mouseup", (event) => {
   // Check if the ray intersects with the cube
   if (cIntersectedObject != null) {
-    OnMouseUp(cIntersectedObject);
+    OnMouseUp();
   }
   bMouseDown = false;
 });
@@ -638,12 +638,14 @@ window.addEventListener("mouseup", (event) => {
 //   // raycaster.setFromCamera(mouse, camera);
 //   // OnMouseMove();
 // };
-window.addEventListener("touchstart", function(event) {
-  event.preventDefault();
-  OnMouseDown();
-}, false);
+// window.addEventListener("touchstart", function(event) {
+//   event.preventDefault();
+//   OnMouseDown();
+// }, false);
 window.addEventListener("click", function() {
   alert("Screen tapped or clicked!");
+  cIntersectedObject = projectsButton;
+  OnMouseDown();
 });
 
 // Initialize the template

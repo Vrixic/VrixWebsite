@@ -405,7 +405,7 @@ class ThreeJSTemplate {
     mainScene.add(this.groundPlane);
 
     const buttonMaterial = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0xffffff),
+      color: new THREE.Color(0xff00ff),
     });
     const textMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
     const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
@@ -621,19 +621,6 @@ window.addEventListener("mousedown", (event) => {
   }
   bMouseDown = true;
 });
-function onTouch(event) {
-  event.preventDefault();
-  // Calculate touch position in normalized device coordinates
-  // mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
-  // mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
-  // // Update the raycaster with the touch position
-  // raycaster.setFromCamera(mouse, camera);
-  // OnMouseMove();
-
-  OnMouseDown();
-};
-// Add touch event listener 
-window.addEventListener("touchstart", onTouch, false);
 window.addEventListener("mouseup", (event) => {
   // Check if the ray intersects with the cube
   if (cIntersectedObject != null) {
@@ -641,6 +628,20 @@ window.addEventListener("mouseup", (event) => {
   }
   bMouseDown = false;
 });
+
+// function onTouch(event) {
+//   event.preventDefault();
+//   // Calculate touch position in normalized device coordinates
+//   // mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+//   // mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+//   // // Update the raycaster with the touch position
+//   // raycaster.setFromCamera(mouse, camera);
+//   // OnMouseMove();
+// };
+window.addEventListener("touchstart", function(event) {
+  event.preventDefault();
+  OnMouseDown();
+}, false);
 
 // Initialize the template
 new ThreeJSTemplate();

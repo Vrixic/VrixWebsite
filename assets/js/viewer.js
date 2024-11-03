@@ -405,7 +405,7 @@ class ThreeJSTemplate {
     mainScene.add(this.groundPlane);
 
     const buttonMaterial = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0xff00ff),
+      color: new THREE.Color(0xffffff),
     });
     const textMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
     const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
@@ -633,7 +633,7 @@ function onTouch(event) {
   OnMouseDown();
 };
 // Add touch event listener 
-window.addEventListener("touchend", onTouch, false);
+window.addEventListener("touchstart", onTouch, false);
 window.addEventListener("mouseup", (event) => {
   // Check if the ray intersects with the cube
   if (cIntersectedObject != null) {

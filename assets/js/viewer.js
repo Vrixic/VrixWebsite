@@ -426,8 +426,8 @@ class ThreeJSTemplate {
     camControls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
     camControls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
     camControls.enablePan = false;
-    camControls.rotateSpeed = 0.25;
-    camControls.zoomSpeed = 0.25;
+    camControls.rotateSpeed = 0.5;
+    camControls.zoomSpeed = 0.5;
   }
 
   addEventListeners() {
@@ -621,7 +621,7 @@ window.addEventListener("mousedown", (event) => {
   }
   bMouseDown = true;
 });
-window.addEventListener("touchend", (event) => {
+function onTouch(event) {
   event.preventDefault();
   // Calculate touch position in normalized device coordinates
   mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
@@ -629,7 +629,9 @@ window.addEventListener("touchend", (event) => {
   // Update the raycaster with the touch position
   raycaster.setFromCamera(mouse, camera);
   OnMouseMove();
-});
+};
+// Add touch event listener 
+window.addEventListener("touchend", onTouch, false);
 window.addEventListener("mouseup", (event) => {
   // Check if the ray intersects with the cube
   if (cIntersectedObject != null) {

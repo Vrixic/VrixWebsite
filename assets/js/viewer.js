@@ -642,6 +642,9 @@ window.addEventListener("touchstart", function(event) {
   event.preventDefault();
   OnMouseDown();
 }, false);
+window.addEventListener("click", function() {
+  alert("Screen tapped or clicked!");
+});
 
 // Initialize the template
 new ThreeJSTemplate();

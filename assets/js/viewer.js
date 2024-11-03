@@ -26,7 +26,15 @@ import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
 var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2, loadingManager;
-var renderer, canvas, camControls;
+/**
+ * @type {THREE.Renderer}
+ */
+var renderer;
+var canvas;
+/**
+ * @type {THREE.OrbitControls}
+ */
+var camControls;
 /**
  * @type {THREE.EffectComposer}
  */
@@ -65,6 +73,8 @@ var camProgress = 0;
 
 var cameraComputerLocation = new THREE.Vector3(1.5, 10.5, 1.1);
 var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
+
+canvas = document.querySelector("canvas.webgl");
 
 // Deep clone function
 function deepClone(object) {
@@ -222,13 +232,6 @@ class ThreeJSTemplate {
       console.error("Element with class 'returnToScene' not found.");
     }
 
-    alert("Alerts work!");
-    if ("ontouchstart" in window) {
-      alert("Touch support detected!");
-    } else {
-      alert("No touch support.");
-    }
-
     this.initScene();
     this.initCamera();
     this.initRenderer();
@@ -352,7 +355,6 @@ class ThreeJSTemplate {
   }
 
   initRenderer() {
-    canvas = document.querySelector("canvas.webgl");
     renderer = new THREE.WebGLRenderer({
       canvas: canvas,
       alpha: true,
@@ -649,11 +651,14 @@ window.addEventListener("mouseup", (event) => {
 //   event.preventDefault();
 //   OnMouseDown();
 // }, false);
-window.addEventListener("click", function() {
-  alert("Screen tapped or clicked!");
-  cIntersectedObject = projectsButton;
-  OnMouseDown();
-});
 
 // Initialize the template
 new ThreeJSTemplate();
+if(renderer)
+{
+  renderer.domElement.addEventListener("click", function() {
+    alert("Screen tapped or clicked!");
+    cIntersectedObject = projectsButton;
+    OnMouseDown();
+  });
+}

@@ -25,7 +25,7 @@ import { FXAAEffect } from "postprocessing";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
-var gltfLoader, cyberHomeGltf, cyberHomeScene, cyberHomeScene2, loadingManager;
+var gltfLoader, cyberHomeGltf, cyberHomeScene, loadingManager;
 /**
  * @type {THREE.Renderer}
  */
@@ -36,9 +36,17 @@ var canvas;
  */
 var camControls;
 /**
+ * @type {THREE.RenderPass}
+ */
+var mainSceneRP, btnsSceneRP;
+/**
  * @type {THREE.EffectComposer}
  */
 var btnComposer, mainComposer;
+/**
+ * @type {THREE.Mesh}
+ */
+var groundPlane;
 /**
  * @type {THREE.Scene}
  */
@@ -55,6 +63,8 @@ var clock;
  * @type {THREE.Camera}
  */
 var camera;
+
+var concreteTex;
 
 // Create a Raycaster
 const raycaster = new THREE.Raycaster();
@@ -75,6 +85,152 @@ var cameraComputerLocation = new THREE.Vector3(1.5, 10.5, 1.1);
 var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 
 canvas = document.querySelector("canvas.webgl");
+
+var deltaTime = 0.0;
+
+/**
+ * @type {THREE.Points}
+ */
+var particleSystem;
+/**
+ * @type {THREE.Scene}
+ */
+var particlesScene;
+
+const particles = [];
+const particleCount = 200;
+
+class LoadMeshes {
+  constructor() {
+    this.initMesh();
+  }
+
+  async initMesh() {
+    await initGltfModel();
+    const textureLoader = new THREE.TextureLoader(loadingManager);
+
+    mainScene.add(cyberHomeScene);
+    concreteTex = textureLoader.load(
+      "assets/models/gltf/cyberpunk_micro-apartments/textures/painted_concrete_02_diff_1k.jpg"
+    );
+
+    // Add Ground Plane
+    const plane = new THREE.CircleGeometry(20, 128);
+    const material0 = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0xffffff),
+      map: concreteTex,
+      opacity: 0.1,
+      transparent: true,
+    });
+    groundPlane = new THREE.Mesh(plane, material0);
+    groundPlane.position.y = 0.05;
+    groundPlane.rotateX(-Math.PI / 2);
+    mainScene.add(groundPlane);
+
+    const buttonMaterial = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(0xff00ff),
+    });
+    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
+    projectsButton = new THREE.Mesh(buttonMesh, buttonMaterial);
+
+    btnsScene.add(projectsButton);
+    createTextMesh("Projects", projectsButton);
+
+    projectsButton.position.x = 2.5;
+    projectsButton.position.y = -0.5;
+    projectsButton.rotation.z = Math.PI * 0.25;
+  }
+}
+
+const gFirefliesFlockRadius = 50.0;
+const gFirefliesMinHeight = 0;
+const gFirefliesMaxHeight = 65;
+
+function flerp(a, b, t) {
+  return a + t * (b - a);
+}
+function blendColors(hex1, hex2, t) {
+  // Ensure t is between 0 and 1
+  t = Math.max(0, Math.min(1, t));
+
+  // Extract RGB components from hex codes
+  const r1 = (hex1 >> 16) & 0xff;
+  const g1 = (hex1 >> 8) & 0xff;
+  const b1 = hex1 & 0xff;
+
+  const r2 = (hex2 >> 16) & 0xff;
+  const g2 = (hex2 >> 8) & 0xff;
+  const b2 = hex2 & 0xff;
+
+  // Interpolate each color component
+  const r = Math.round(r1 + t * (r2 - r1));
+  const g = Math.round(g1 + t * (g2 - g1));
+  const b = Math.round(b1 + t * (b2 - b1));
+
+  // Convert back to hex
+  return (r << 16) + (g << 8) + b;
+}
+
+class Particle {
+  constructor() {
+    // Initialize position, velocity, and acceleration
+    this.position = new THREE.Vector3(
+      (Math.random() - 0.5) * 50,
+      Math.random() * 20,
+      (Math.random() - 0.5) * 50
+    );
+
+    // Optional properties like lifespan for fading effects
+    this.lifespan = Math.random();
+    this.decay = Math.random() * 0.005; // Decay rate
+
+    this.gFirefliesElevationSpeed = 0.125 * (Math.random() - 0.5);
+    this.gFirefliesWhirlSpeed = 0.0625 * (Math.random() - 0.5);
+
+    this.gFirefliesWhirlAngle = 5 * (Math.random() - 0.5);
+    this.gFirefliesElevationT = 5 * (Math.random() - 0.5);
+    this.elevationDirection = 1;
+
+    this.cr = 0;
+    this.cg = 1;
+    this.cb = 1;
+  }
+
+  // Update particle position and velocity
+  update() {
+    // this.lifespan -= this.decay; // Reduce lifespan
+    // this.lifespan = Math.max(this.lifespan, 0); // Clamp lifespan to 0
+
+    const firefliesX =
+      Math.cos(this.gFirefliesWhirlAngle) * gFirefliesFlockRadius;
+    const firefliesZ =
+      6.0 + Math.sin(this.gFirefliesWhirlAngle) * gFirefliesFlockRadius;
+
+    const firefliesY = flerp(
+      gFirefliesMinHeight,
+      gFirefliesMaxHeight,
+      (Math.sin(this.gFirefliesElevationT) + 1.0) * 0.5
+    );
+
+    this.gFirefliesWhirlAngle += deltaTime * this.gFirefliesWhirlSpeed;
+    this.gFirefliesElevationT +=
+      deltaTime * this.gFirefliesElevationSpeed * this.elevationDirection;
+    if (
+      (this.gFirefliesElevationT >= 1.0 && this.elevationDirection == 1) ||
+      (this.gFirefliesElevationT <= 0.0 && this.elevationDirection == -1)
+    ) {
+      this.elevationDirection *= -1;
+    }
+
+    const val = firefliesY / gFirefliesMaxHeight;
+    this.cr = flerp(0, 1, val);
+    this.cg = flerp(1, 165.0 / 255.0, val);
+    this.cb = flerp(1, 0.0, val);
+
+    this.position.set(firefliesX, firefliesY, firefliesZ); // Update position based on velocity
+  }
+}
 
 // Deep clone function
 function deepClone(object) {
@@ -97,7 +253,6 @@ async function initGltfModel() {
     "assets/models/gltf/cyberpunk_micro-apartments/scene.gltf"
   );
   cyberHomeScene = cyberHomeGltf.scene;
-  cyberHomeScene2 = deepClone(cyberHomeScene);
 }
 
 function initLoadScreen() {
@@ -204,6 +359,7 @@ function createTextMesh(textString, parent) {
     }
   ); //end load function
 }
+
 function OnExitButtonClick() {
   if (!bReturnToScene) {
     bReturnToScene = true;
@@ -215,337 +371,131 @@ function OnExitButtonClick() {
   }
 }
 
-class ThreeJSTemplate {
-  constructor() {
-    initLoadScreen();
+// Define Exit Buttin
+const exitButton = document.querySelector(".returnToScene");
+// Check if the element exists, then add the onclick event
+if (exitButton) {
+  exitButton.onclick = function () {
+    OnExitButtonClick();
+  };
+  exitButton.addEventListener("touchstart", function () {
+    OnExitButtonClick();
+  });
+} else {
+  console.error("Element with class 'returnToScene' not found.");
+}
 
-    const exitButton = document.querySelector(".returnToScene");
-    // Check if the element exists, then add the onclick event
-    if (exitButton) {
-      exitButton.onclick = function () {
-        OnExitButtonClick();
-      };
-      exitButton.addEventListener("touchstart", function () {
-        OnExitButtonClick();
-      });
-    } else {
-      console.error("Element with class 'returnToScene' not found.");
-    }
+function initBtnComposer() {
+  btnComposer = new EffectComposer(renderer);
+  btnsSceneRP = new RenderPass(btnsScene, camera);
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.15,
+    0.4,
+    0.05
+  );
+  const fxaaPass = new ShaderPass(FXAAShader);
+  const op = new OutputPass();
 
-    this.initScene();
-    this.initCamera();
-    this.initRenderer();
-    this.initLights();
-    this.initMesh();
-    this.initControls();
-    this.addEventListeners();
-    this.initMirrorComposer();
-    this.initBtnComposer();
-    this.initMainComposer();
+  btnComposer.addPass(btnsSceneRP);
+  btnComposer.addPass(fxaaPass);
+  btnComposer.addPass(bloomPass);
+  btnComposer.addPass(op);
 
-    renderer.autoClear = false;
+  btnComposer.renderToScreen = true;
+  //btnsSceneRP.clear = false;
+}
 
-    mainScene.scale.set(sceneScale, sceneScale, sceneScale);
-    btnsScene.scale.set(sceneScale, sceneScale, sceneScale);
+function initMainComposer() {
+  mainComposer = new EffectComposer(renderer);
+  mainSceneRP = new RenderPass(mainScene, camera);
+  const fxaaPass = new ShaderPass(FXAAShader);
+  const op = new OutputPass();
 
-    this.animate();
+  mainComposer.addPass(mainSceneRP);
+  mainComposer.addPass(fxaaPass);
+  mainComposer.addPass(op);
 
-    //   const gui = new GUI();
-    //   // Parameters object to control via GUI
-    //   const params = {
-    //     targetObjectLookX: cameraComputerLookLocation.x,
-    //     targetObjectLookY: cameraComputerLookLocation.y,
-    //     targetObjectLookZ: cameraComputerLookLocation.z,
-    // };
+  mainComposer.renderToScreen = true;
+  //mainSceneRP.autoClear = false;
+}
 
-    // // Camera position controls
-    //   gui.add(params, 'targetObjectLookX', -50, 50).onChange(value => cameraComputerLookLocation.x = value);
-    //   gui.add(params, 'targetObjectLookY', -50, 50).onChange(value => cameraComputerLookLocation.y = value);
-    //   gui.add(params, 'targetObjectLookZ', -50, 50).onChange(value => cameraComputerLookLocation.z = value);
-    //   gui.open();
-    //   document.body.appendChild(stats.dom);
-  }
+function initScene() {
+  mainScene = new THREE.Scene();
+  mainScene.scale.set(sceneScale, sceneScale, sceneScale);
 
-  initMirrorComposer() {
-    this.mirrorComposer = new EffectComposer(renderer);
+  btnsScene = new THREE.Scene();
+  btnsScene.scale.set(sceneScale, sceneScale, sceneScale);
 
-    const mirrorrp = new RenderPass(this.mirrorScene, camera);
-    this.mirrorComposer.addPass(mirrorrp);
+  clock = new THREE.Clock();
+}
 
-    this.hBlur = new ShaderPass(HorizontalBlurShader);
-    this.vBlur = new ShaderPass(VerticalBlurShader);
-    this.hBlur.uniforms.h.value = (1 / window.innerWidth) * 2;
-    this.vBlur.uniforms.v.value = (1 / window.innerHeight) * 2;
-    this.mirrorComposer.addPass(this.hBlur);
-    this.mirrorComposer.addPass(this.vBlur);
+function initCamera() {
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+  );
 
-    // Add the ShaderPass for the heat wave effect
-    const glitchPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.5,
-      0.2,
-      0.95
-    );
-    this.mirrorComposer.addPass(glitchPass);
+  camera.position.x = 25;
+  camera.position.y = 12.5;
+  camera.position.z = 0.5;
+  camera.lookAt(0, 0, 0);
+}
 
-    const op0 = new OutputPass();
-    this.mirrorComposer.addPass(op0);
-    this.mirrorComposer.renderToScreen = true;
-  }
+function initRenderer() {
+  renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    alpha: true,
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000);
 
-  initBtnComposer() {
-    btnComposer = new EffectComposer(renderer);
-    const btnrp = new RenderPass(btnsScene, camera);
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.15,
-      0.4,
-      0.05
-    );
-    const fxaaPass = new ShaderPass(FXAAShader);
-    const op = new OutputPass();
+  renderer.autoClear = false;
+}
 
-    btnComposer.renderToScreen = true;
-    btnComposer.addPass(btnrp);
-    btnComposer.addPass(fxaaPass);
-    btnComposer.addPass(bloomPass);
-    btnComposer.addPass(op);
-  }
+function initLights() {
+  const ambientLight = new THREE.AmbientLight(0x2e2e2e);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 
-  initMainComposer() {
-    mainComposer = new EffectComposer(renderer);
-    const mainrp = new RenderPass(mainScene, camera);
-    mainrp.autoClear = false;
-    const fxaaPass = new ShaderPass(FXAAShader);
-    const op = new OutputPass();
+  RectAreaLightUniformsLib.init();
 
-    mainComposer.autoClear = false;
-    mainComposer.renderToScreen = true;
-    mainComposer.addPass(mainrp);
-    mainComposer.addPass(fxaaPass);
-    mainComposer.addPass(op);
-  }
+  const pl0 = new THREE.PointLight(
+    0x11ffff,
+    250 * sceneScale,
+    1000 * sceneScale
+  );
+  pl0.position.y = 1;
 
-  initScene() {
-    mainScene = new THREE.Scene();
-    btnsScene = new THREE.Scene();
-    this.mirrorScene = new THREE.Scene();
-    clock = new THREE.Clock();
-  }
+  mainScene.add(ambientLight, pl0);
+}
 
-  initCamera() {
-    this.sizes = {
-      width: window.innerWidth,
-      height: window.innerHeight,
-    };
-    camera = new THREE.PerspectiveCamera(
-      75,
-      this.sizes.width / this.sizes.height,
-      0.1,
-      100
-    );
+function initControls() {
+  camControls = new OrbitControls(camera, canvas);
+  camControls.enableDamping = true;
+  camControls.maxDistance = 40;
+  camControls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
+  camControls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
+  camControls.enablePan = false;
+  camControls.rotateSpeed = 0.5;
+  camControls.zoomSpeed = 0.5;
+}
 
-    camera.position.x = 25;
-    camera.position.y = 12.5;
-    camera.position.z = 0.5;
-    camera.lookAt(0, 0, 0);
+function addEventListeners() {
+  window.addEventListener("resize", () => onResize());
+}
 
-    mainScene.add(camera);
-    this.mirrorScene.add(camera);
-  }
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
 
-  initRenderer() {
-    renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
-      alpha: true,
-    });
-    renderer.setSize(this.sizes.width, this.sizes.height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000);
-  }
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  initLights() {
-    const ambientLight = new THREE.AmbientLight(0x2e2e2e);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-
-    RectAreaLightUniformsLib.init();
-
-    const pl0 = new THREE.PointLight(
-      0x11ffff,
-      250 * sceneScale,
-      1000 * sceneScale
-    );
-    pl0.position.y = 1;
-
-    mainScene.add(ambientLight, pl0);
-  }
-
-  async initMesh() {
-    await initGltfModel();
-    mainScene.add(cyberHomeScene);
-    this.mirrorScene.add(cyberHomeScene2);
-
-    const textureLoader = new THREE.TextureLoader(loadingManager);
-    const texture = textureLoader.load(
-      "assets/models/gltf/cyberpunk_micro-apartments/textures/painted_concrete_02_diff_1k.jpg"
-    );
-
-    // Add Ground Plane
-    const plane = new THREE.CircleGeometry(20, 128);
-    this.mirror = new Reflector(plane, {
-      color: new THREE.Color(0xffffff), // Color tint for the mirror
-      textureWidth: window.innerWidth * 2,
-      textureHeight: window.innerHeight * 2,
-      clipBias: 0.003, // Small offset to reduce clipping artifacts
-    });
-    this.mirror.position.y = 0.04;
-    this.mirror.rotateX(-Math.PI / 2);
-    this.mirrorScene.add(this.mirror);
-
-    const material0 = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xffffff),
-      map: texture,
-      opacity: 0.1,
-      transparent: true,
-    });
-    this.groundPlane = new THREE.Mesh(plane, material0);
-    this.groundPlane.position.y = 0.05;
-    this.groundPlane.rotateX(-Math.PI / 2);
-    mainScene.add(this.groundPlane);
-
-    const buttonMaterial = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0xff00ff),
-    });
-    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
-    const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
-    projectsButton = new THREE.Mesh(buttonMesh, buttonMaterial);
-
-    btnsScene.add(projectsButton);
-    createTextMesh("Projects", projectsButton);
-
-    projectsButton.position.x = 2.5;
-    projectsButton.position.y = -0.5;
-    projectsButton.rotation.z = Math.PI * 0.25;
-  }
-
-  initControls() {
-    camControls = new OrbitControls(camera, canvas);
-    camControls.enableDamping = true;
-    camControls.maxDistance = 40;
-    camControls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
-    camControls.maxPolarAngle = Math.PI * 0.49; // maximum angle in radians (PI is directly below)
-    camControls.enablePan = false;
-    camControls.rotateSpeed = 0.5;
-    camControls.zoomSpeed = 0.5;
-  }
-
-  addEventListeners() {
-    window.addEventListener("resize", () => this.onResize());
-  }
-
-  onResize() {
-    this.sizes.width = window.innerWidth;
-    this.sizes.height = window.innerHeight;
-
-    camera.aspect = this.sizes.width / this.sizes.height;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(this.sizes.width, this.sizes.height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    this.mirrorComposer.setSize(this.sizes.width, this.sizes.height);
-    this.mirrorComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    btnComposer.setSize(this.sizes.width, this.sizes.height);
-    btnComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    this.hBlur.uniforms.h.value = (1 / window.innerWidth) * 2;
-    this.vBlur.uniforms.v.value = (1 / window.innerHeight) * 2;
-  }
-
-  animate() {
-    const cForwardVector = new THREE.Vector3();
-    camera.getWorldDirection(cForwardVector);
-    if (projectsButton != null) {
-      if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
-        projectsButton.visible = true;
-      } else {
-        projectsButton.visible = false;
-      }
-    }
-
-    if (bGoingToComputer) {
-      // Define where to position the camera to focus nicely on the target
-      camera.position.lerp(cameraComputerLocation, 0.05); // Smoothly interpolate the position
-
-      // Create a temporary camera to calculate target quaternion
-      const tempCamera = camera.clone();
-      tempCamera.lookAt(cameraComputerLookLocation);
-
-      // Smoothly interpolate the camera rotation
-      camera.quaternion.slerp(tempCamera.quaternion, 0.05);
-
-      const l = Math.abs(
-        new THREE.Vector3()
-          .subVectors(cameraComputerLocation, camera.position)
-          .length()
-      );
-      if (l < 0.01) {
-        bGoingToComputer = false;
-        bViewingComputer = true;
-
-        camControls.target.copy(cameraComputerLookLocation);
-        camControls.saveState();
-        camControls.reset();
-
-        const elementWithClass = document.querySelector("div#wrapper");
-        if (elementWithClass) {
-          elementWithClass.style.display = "";
-        }
-      }
-    }
-
-    if (bReturnToScene) {
-      camera.position.lerp(camPrevLocation, 0.05); // Smoothly interpolate the position
-      camera.quaternion.slerp(camPrevRotation, 0.05);
-
-      const l = Math.abs(
-        new THREE.Vector3()
-          .subVectors(camPrevLocation, camera.position)
-          .length()
-      );
-      if (l < 0.01) {
-        bReturnToScene = false;
-        bViewingComputer = false;
-
-        camControls.target.set(0, 0, 0);
-        camControls.saveState();
-        camControls.reset();
-      }
-    }
-
-    camControls.enabled =
-      !bViewingComputer && !bGoingToComputer && !bReturnToScene;
-
-    // Update controls
-    if (camControls.enabled) {
-      camControls.update();
-    }
-
-    // Render
-    stats.update();
-
-    stats.begin();
-    renderer.clear();
-    //this.mirrorComposer.render();
-    //renderer.clearDepth();
-    btnComposer.render();
-    renderer.clearDepth();
-    renderer.render(mainScene, camera);
-    stats.end();
-    // Call animate again on the next frame
-    window.requestAnimationFrame(() => this.animate());
-  }
+  btnComposer.setSize(window.innerWidth, window.innerHeight);
+  btnComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 }
 
 /**
@@ -638,17 +588,192 @@ window.addEventListener("mouseup", (event) => {
   bMouseDown = false;
 });
 
-// Initialize the template
-new ThreeJSTemplate();
-if (renderer) {  
-  renderer.domElement.addEventListener("touchstart", function (event) {
-    event.preventDefault();
-    // Calculate touch position in normalized device coordinates
-    mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
-    // Update the raycaster with the touch position
-    raycaster.setFromCamera(mouse, camera);
-    OnMouseMove();
-    OnMouseDown();
+function initParticles() {
+  particlesScene = new THREE.Scene();
+
+  // Initialize particles
+  for (let i = 0; i < particleCount; i++) {
+    particles.push(new Particle());
+  }
+
+  // Create geometry and material for particle system
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+
+  // Initialize position and alpha arrays
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3] = particles[i].position.x;
+    positions[i * 3 + 1] = particles[i].position.y;
+    positions[i * 3 + 2] = particles[i].position.z;
+
+    colors[i * 3] = 0;
+    colors[i * 3 + 1] = 1;
+    colors[i * 3 + 2] = 1;
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+  // Particle material
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.025,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    vertexColors: true,
   });
+
+  // Create Points object
+  particleSystem = new THREE.Points(geometry, material);
+  particlesScene.add(particleSystem);
 }
+// Update particle positions and alpha
+function updateParticles() {
+  const positions = particleSystem.geometry.attributes.position.array;
+  const colors = particleSystem.geometry.attributes.color.array;
+
+  particles.forEach((particle, i) => {
+    particle.update(); // Update each particle's position and lifespan
+
+    // Update positions in the buffer geometry
+    positions[i * 3] = particle.position.x;
+    positions[i * 3 + 1] = particle.position.y;
+    positions[i * 3 + 2] = particle.position.z;
+
+    colors[i * 3] = particle.cr;
+    colors[i * 3 + 1] = particle.cg;
+    colors[i * 3 + 2] = particle.cb;
+  });
+
+  particleSystem.geometry.attributes.position.needsUpdate = true;
+  particleSystem.geometry.attributes.color.needsUpdate = true;
+}
+function animate() {
+  deltaTime = clock.getDelta();
+
+  const cForwardVector = new THREE.Vector3();
+  camera.getWorldDirection(cForwardVector);
+  if (projectsButton != null) {
+    if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
+      projectsButton.visible = true;
+    } else {
+      projectsButton.visible = false;
+    }
+  }
+
+  if (bGoingToComputer) {
+    // Define where to position the camera to focus nicely on the target
+    camera.position.lerp(cameraComputerLocation, 0.05); // Smoothly interpolate the position
+
+    // Create a temporary camera to calculate target quaternion
+    const tempCamera = camera.clone();
+    tempCamera.lookAt(cameraComputerLookLocation);
+
+    // Smoothly interpolate the camera rotation
+    camera.quaternion.slerp(tempCamera.quaternion, 0.05);
+
+    const l = Math.abs(
+      new THREE.Vector3()
+        .subVectors(cameraComputerLocation, camera.position)
+        .length()
+    );
+    if (l < 0.01) {
+      bGoingToComputer = false;
+      bViewingComputer = true;
+
+      camControls.target.copy(cameraComputerLookLocation);
+      camControls.saveState();
+      camControls.reset();
+
+      const elementWithClass = document.querySelector("div#wrapper");
+      if (elementWithClass) {
+        elementWithClass.style.display = "";
+      }
+    }
+  }
+
+  if (bReturnToScene) {
+    camera.position.lerp(camPrevLocation, 0.05); // Smoothly interpolate the position
+    camera.quaternion.slerp(camPrevRotation, 0.05);
+
+    const l = Math.abs(
+      new THREE.Vector3().subVectors(camPrevLocation, camera.position).length()
+    );
+    if (l < 0.01) {
+      bReturnToScene = false;
+      bViewingComputer = false;
+
+      camControls.target.set(0, 0, 0);
+      camControls.saveState();
+      camControls.reset();
+    }
+  }
+
+  camControls.enabled =
+    !bViewingComputer && !bGoingToComputer && !bReturnToScene;
+
+  // Update controls
+  if (camControls.enabled) {
+    camControls.update();
+  }
+
+  if (particleSystem) {
+    updateParticles();
+  }
+
+  // Render
+  stats.update();
+
+  stats.begin();
+  renderer.clear();
+  btnComposer.render();
+  renderer.clearDepth();
+  renderer.render(mainScene, camera);
+  renderer.render(particlesScene, camera);
+  stats.end();
+  // Call animate again on the next frame
+  window.requestAnimationFrame(() => animate());
+}
+
+class MainEntry {
+  constructor() {
+    this.OnAppStart();
+  }
+
+  async OnAppStart() {
+    // Initialize the template
+    await new LoadMeshes();
+
+    initLoadScreen();
+    initScene();
+    initCamera();
+    initRenderer();
+    initLights();
+    initControls();
+    addEventListeners();
+    initBtnComposer();
+    initMainComposer();
+
+    await initParticles();
+
+    document.body.appendChild(stats.domElement);
+
+    if (renderer) {
+      renderer.domElement.addEventListener("touchstart", function (event) {
+        event.preventDefault();
+        // Calculate touch position in normalized device coordinates
+        mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+        // Update the raycaster with the touch position
+        raycaster.setFromCamera(mouse, camera);
+        OnMouseMove();
+        OnMouseDown();
+      });
+    }
+
+    animate();
+  }
+}
+
+new MainEntry();

@@ -23,14 +23,20 @@ import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 import { FXAAEffect } from "postprocessing";
 
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
-import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
-var gltfLoader, cyberHomeGltf, cyberHomeScene, loadingManager;
+import LineGenerator from "./objects/LineGenerator.js";
+import Stars from "./objects/Stars.js";
+
+import getRandomFloat from "./utils/getRandomFloat.js";
+import getRandomItem from "./utils/getRandomItem.js";
+import AppCanvas from "./graphics/AppCanvas.js";
+
+var gltfLoader, spaceStationScene, cyberHomeScene, loadingManager;
 /**
- * @type {THREE.Renderer}
+ * @type {THREE.AnimationMixer}
  */
-var renderer;
-var canvas;
+var spaceStationSceneMixer;
 /**
  * @type {THREE.OrbitControls}
  */
@@ -50,7 +56,7 @@ var groundPlane;
 /**
  * @type {THREE.Scene}
  */
-var mainScene, btnsScene, textScene;
+var mainScene, btnsScene, loadingScene;
 /**
  * @type {THREE.Mesh}
  */
@@ -62,9 +68,13 @@ var clock;
 /**
  * @type {THREE.Camera}
  */
-var camera;
+var mainCamera, loadingCamera;
 
-var concreteTex;
+var canvas = document.querySelector("canvas.webgl");
+/**
+ * @type {AppCanvas}
+ */
+var gAppCanvas = new AppCanvas(canvas);
 
 // Create a Raycaster
 const raycaster = new THREE.Raycaster();
@@ -84,8 +94,6 @@ var camProgress = 0;
 var cameraComputerLocation = new THREE.Vector3(1.5, 10.5, 1.1);
 var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 
-canvas = document.querySelector("canvas.webgl");
-
 var deltaTime = 0.0;
 
 /**
@@ -97,50 +105,98 @@ var particleSystem;
  */
 var particlesScene;
 
+/**
+ * @type {HTMLDivElement}
+ */
+var loadingScreen;
+
 const particles = [];
 const particleCount = 200;
 
-class LoadMeshes {
-  constructor() {
-    this.initMesh();
-  }
+/**
+ * * *******************
+ * * Lines
+ * * *******************
+ */
+const RADIUS_START = 0.3;
+const RADIUS_START_MIN = 0.1;
+const Z_MIN = -1;
 
-  async initMesh() {
-    await initGltfModel();
-    const textureLoader = new THREE.TextureLoader(loadingManager);
+const Z_INCREMENT = 0.08;
+const ANGLE_INCREMENT = 0.025;
+const RADIUS_INCREMENT = 0.02;
 
-    mainScene.add(cyberHomeScene);
-    concreteTex = textureLoader.load(
-      "assets/models/gltf/cyberpunk_micro-apartments/textures/painted_concrete_02_diff_1k.jpg"
-    );
+const COLORS = ["#ee3227", "#134a7c", "#ffffff"].map(
+  (col) => new THREE.Color(col)
+);
+const STATIC_PROPS = {
+  transformLineMethod: (p) => p * 1.5,
+};
 
-    // Add Ground Plane
-    const plane = new THREE.CircleGeometry(20, 128);
-    const material0 = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xffffff),
-      map: concreteTex,
-      opacity: 0.1,
-      transparent: true,
+const position = { x: 0, y: 0, z: 0 };
+class CustomLineGenerator extends LineGenerator {
+  addLine() {
+    if (this.lines.length > 400) return;
+
+    let z = Z_MIN;
+    let radius = Math.random() > 0.8 ? RADIUS_START_MIN : RADIUS_START;
+    let angle = getRandomFloat(0, Math.PI * 2);
+
+    const points = [];
+    while (z < mainCamera.position.z) {
+      position.x = Math.cos(angle) * radius;
+      position.y = Math.sin(angle) * radius;
+      position.z = z;
+
+      // incrementation
+      z += Z_INCREMENT;
+      angle += ANGLE_INCREMENT;
+      radius += RADIUS_INCREMENT;
+
+      // push
+      points.push(new THREE.Vector3(position.x, position.y, position.z));
+    }
+
+    // Low lines
+    super.addLine({
+      visibleLength: getRandomFloat(0.1, 0.4),
+      // visibleLength: 1,
+      points,
+      // speed: getRandomFloat(0.001, 0.002),
+      speed: getRandomFloat(0.002, 0.01),
+      color: getRandomItem(COLORS),
+      width: getRandomFloat(0.01, 0.06),
     });
-    groundPlane = new THREE.Mesh(plane, material0);
-    groundPlane.position.y = 0.05;
-    groundPlane.rotateX(-Math.PI / 2);
-    mainScene.add(groundPlane);
-
-    const buttonMaterial = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0xff00ff),
-    });
-    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
-    const buttonMesh = new THREE.BoxGeometry(0.1, 0.5, 1.5);
-    projectsButton = new THREE.Mesh(buttonMesh, buttonMaterial);
-
-    btnsScene.add(projectsButton);
-    createTextMesh("Projects", projectsButton);
-
-    projectsButton.position.x = 2.5;
-    projectsButton.position.y = -0.5;
-    projectsButton.rotation.z = Math.PI * 0.25;
   }
+}
+/**
+ * @type {CustomLineGenerator}
+ */
+var lineGenerator;
+
+// Deep clone function
+function deepClone(object) {
+  const clone = object.clone();
+
+  // Recursively clone geometry and material for each mesh
+  clone.traverse((node) => {
+    if (node.isMesh) {
+      node.geometry = node.geometry.clone();
+      node.material = node.material.clone();
+    }
+  });
+
+  return clone;
+}
+
+function initMeshes() {
+  gltfLoader = new GLTFLoader(loadingManager);
+  gltfLoader
+    .loadAsync("assets/models/gltf/cyberpunk_micro-apartments/scene.gltf")
+    .then(function (gltf) {
+      cyberHomeScene = gltf.scene;
+      mainScene.add(gltf.scene);
+    });
 }
 
 const gFirefliesFlockRadius = 50.0;
@@ -232,132 +288,80 @@ class Particle {
   }
 }
 
-// Deep clone function
-function deepClone(object) {
-  const clone = object.clone();
+var bAssetsLoadCompleted = false;
 
-  // Recursively clone geometry and material for each mesh
-  clone.traverse((node) => {
-    if (node.isMesh) {
-      node.geometry = node.geometry.clone();
-      node.material = node.material.clone();
-    }
-  });
-
-  return clone;
+function OnAssetLoadCompleted() {
+  setTimeout(() => {
+    bAssetsLoadCompleted = true;
+    loadingScreen.style.opacity = "0";
+    setTimeout(() => {
+      loadingScreen.style.display = "none";
+      animate();
+    }, 500);
+  }, 1500);
 }
-
-async function initGltfModel() {
-  gltfLoader = new GLTFLoader(loadingManager);
-  cyberHomeGltf = await gltfLoader.loadAsync(
-    "assets/models/gltf/cyberpunk_micro-apartments/scene.gltf"
-  );
-  cyberHomeScene = cyberHomeGltf.scene;
-}
-
 function initLoadScreen() {
   // Loading Screen HTML and CSS setup
-  const loadingScreen = document.createElement("div");
+  loadingScreen = document.createElement("div");
   loadingScreen.style.position = "fixed";
   loadingScreen.style.width = "100%";
   loadingScreen.style.height = "100%";
-  loadingScreen.style.backgroundColor = "#000";
+  loadingScreen.style.backgroundColor = "rgba(0,0,0,1)";
   loadingScreen.style.display = "flex";
   loadingScreen.style.justifyContent = "center";
   loadingScreen.style.alignItems = "center";
-  loadingScreen.style.color = "#fff";
+  loadingScreen.style.color = "#ffffff";
   loadingScreen.style.fontSize = "24px";
-  loadingScreen.innerHTML = "Loading... 0%";
+
+  // Set initial opacity to 0 for fade-in effect
+  loadingScreen.style.opacity = "0";
+  loadingScreen.style.transition = "opacity 0.5s ease"; // Adjust duration as needed
+
+  loadingScreen.innerHTML = "Loading...";
+
   document.body.appendChild(loadingScreen);
+
+  const width = loadingScreen.offsetWidth;
+  const height = loadingScreen.offsetHeight;
+
+  // Set font size as a percentage of width or height
+  const fontSize = Math.min(width, height) * 0.075; // Adjust the multiplier as needed
+  loadingScreen.style.fontSize = `${fontSize}px`;
 
   // Loading Manager
   loadingManager = new THREE.LoadingManager();
 
-  // Update the loading screen as assets load
-  loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
-    const progress = Math.round((itemsLoaded / itemsTotal) * 100);
-    loadingScreen.innerHTML = `Loading... ${progress}%`;
-  };
-
   // Remove the loading screen when all assets are loaded
   loadingManager.onLoad = () => {
-    loadingScreen.style.display = "none";
+    OnAssetLoadCompleted();
   };
-}
 
-function createTextMesh(textString, parent) {
-  // Load the font and create 3D text
-  const loader = new FontLoader(loadingManager);
-  loader.load(
-    "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
-    function (font) {
-      const color = 0xffffff;
+  loadingScene = new THREE.Scene();
+  loadingCamera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    500
+  );
+  loadingCamera.position.x = 0.75;
+  loadingCamera.lookAt(0, 0, 0);
 
-      const matDark = new THREE.LineBasicMaterial({
-        color: color,
-        side: THREE.DoubleSide,
-      });
+  //
+  lineGenerator = new CustomLineGenerator(
+    {
+      frequency: 0.5,
+    },
+    STATIC_PROPS
+  );
+  //loadingScene.add(lineGenerator);
 
-      const matLite = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: 0.4,
-        side: THREE.DoubleSide,
-      });
+  lineGenerator.rotation.y = Math.PI * 0.5;
+  lineGenerator.start();
 
-      const message = textString;
-
-      const shapes = font.generateShapes(message, 0.25);
-
-      const geometry = new THREE.ShapeGeometry(shapes);
-
-      geometry.computeBoundingBox();
-
-      const xMid =
-        -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
-
-      geometry.translate(xMid, 0, 0);
-
-      // make line shape ( N.B. edge view remains visible )
-
-      const holeShapes = [];
-
-      for (let i = 0; i < shapes.length; i++) {
-        const shape = shapes[i];
-
-        if (shape.holes && shape.holes.length > 0) {
-          for (let j = 0; j < shape.holes.length; j++) {
-            const hole = shape.holes[j];
-            holeShapes.push(hole);
-          }
-        }
-      }
-
-      shapes.push.apply(shapes, holeShapes);
-
-      const lineText = new THREE.Object3D();
-
-      for (let i = 0; i < shapes.length; i++) {
-        const shape = shapes[i];
-
-        const points = shape.getPoints();
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-        geometry.translate(xMid, 0, 0);
-
-        const lineMesh = new THREE.Line(geometry, matDark);
-        lineText.add(lineMesh);
-      }
-
-      lineText.position.x += 0.1;
-      lineText.position.y -= 0.125;
-      lineText.rotation.y = Math.PI * 0.5;
-
-      projectsLineText = lineText;
-      parent.add(lineText);
-      return lineText;
-    }
-  ); //end load function
+  // Trigger the fade-in effect after appending
+  setTimeout(() => {
+    loadingScreen.style.opacity = "1";
+  }, 100); // Small delay to ensure the transition applies
 }
 
 function OnExitButtonClick() {
@@ -386,19 +390,19 @@ if (exitButton) {
 }
 
 function initBtnComposer() {
-  btnComposer = new EffectComposer(renderer);
-  btnsSceneRP = new RenderPass(btnsScene, camera);
+  btnComposer = new EffectComposer(gAppCanvas.Renderer);
+  btnsSceneRP = new RenderPass(btnsScene, mainCamera);
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     0.15,
     0.4,
     0.05
   );
-  const fxaaPass = new ShaderPass(FXAAShader);
+  //const fxaaPass = new ShaderPass(FXAAShader);
   const op = new OutputPass();
 
   btnComposer.addPass(btnsSceneRP);
-  btnComposer.addPass(fxaaPass);
+  //btnComposer.addPass(fxaaPass);
   btnComposer.addPass(bloomPass);
   btnComposer.addPass(op);
 
@@ -407,8 +411,8 @@ function initBtnComposer() {
 }
 
 function initMainComposer() {
-  mainComposer = new EffectComposer(renderer);
-  mainSceneRP = new RenderPass(mainScene, camera);
+  mainComposer = new EffectComposer(gAppCanvas.Renderer);
+  mainSceneRP = new RenderPass(mainScene, mainCamera);
   const fxaaPass = new ShaderPass(FXAAShader);
   const op = new OutputPass();
 
@@ -420,7 +424,7 @@ function initMainComposer() {
   //mainSceneRP.autoClear = false;
 }
 
-function initScene() {
+function initScenes() {
   mainScene = new THREE.Scene();
   mainScene.scale.set(sceneScale, sceneScale, sceneScale);
 
@@ -428,52 +432,42 @@ function initScene() {
   btnsScene.scale.set(sceneScale, sceneScale, sceneScale);
 
   clock = new THREE.Clock();
+
+  addMainSceneObjects();
+  addBtnSceneObjects();
 }
 
 function initCamera() {
-  camera = new THREE.PerspectiveCamera(
+  mainCamera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
     0.1,
-    100
+    500
   );
 
-  camera.position.x = 25;
-  camera.position.y = 12.5;
-  camera.position.z = 0.5;
-  camera.lookAt(0, 0, 0);
-}
-
-function initRenderer() {
-  renderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    alpha: true,
-  });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000);
-
-  renderer.autoClear = false;
+  mainCamera.position.x = 25;
+  mainCamera.position.y = 12.5;
+  mainCamera.position.z = 0.5;
+  mainCamera.lookAt(0, 0, 0);
 }
 
 function initLights() {
-  const ambientLight = new THREE.AmbientLight(0x2e2e2e);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-
-  RectAreaLightUniformsLib.init();
+  const ambientLight = new THREE.AmbientLight(0x11ffff);
+  const directionalLight = new THREE.DirectionalLight(0x11ffff, 1);
 
   const pl0 = new THREE.PointLight(
-    0x11ffff,
-    250 * sceneScale,
-    1000 * sceneScale
+    0xff0000,
+    250000 * sceneScale,
+    1000000 * sceneScale
   );
-  pl0.position.y = 1;
+  pl0.position.y = 5;
 
-  mainScene.add(ambientLight, pl0);
+  mainScene.add(ambientLight, directionalLight);
+  //btnsScene.add(pl0);
 }
 
 function initControls() {
-  camControls = new OrbitControls(camera, canvas);
+  camControls = new OrbitControls(mainCamera, canvas);
   camControls.enableDamping = true;
   camControls.maxDistance = 40;
   camControls.minPolarAngle = Math.PI * 0.25; // minimum angle in radians (0 is directly above)
@@ -488,11 +482,10 @@ function addEventListeners() {
 }
 
 function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  mainCamera.aspect = window.innerWidth / window.innerHeight;
+  mainCamera.updateProjectionMatrix();
 
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  gAppCanvas.OnResize();
 
   btnComposer.setSize(window.innerWidth, window.innerHeight);
   btnComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -523,8 +516,8 @@ function OnMouseDown() {
   cIntersectedObject.material.color.set(0x00ff00); // Change color to pink
   camControls.rotateSpeed = 0.0;
 
-  camPrevLocation.copy(camera.position);
-  camPrevRotation.copy(camera.quaternion);
+  camPrevLocation.copy(mainCamera.position);
+  camPrevRotation.copy(mainCamera.quaternion);
   bGoingToComputer = true;
   camProgress = 0;
 }
@@ -536,41 +529,41 @@ function OnMouseUp() {
 function OnMouseMove() {
   const intersected = raycaster.intersectObject(btnsScene);
 
-  const collidableObjects = intersected.filter((intersect) => {
-    return intersect.object.id == projectsButton.id;
-  });
+  // const collidableObjects = intersected.filter((intersect) => {
+  //   return intersect.object.id == projectsButton.id;
+  // });
 
-  if (collidableObjects.length > 0) {
-    if (!bMouseDown) {
-      // Hover End
-      if (
-        cIntersectedObject != collidableObjects[0].object &&
-        cIntersectedObject != null
-      ) {
-        OnHoverEnd(cIntersectedObject);
-      }
+  // if (collidableObjects.length > 0) {
+  //   if (!bMouseDown) {
+  //     // Hover End
+  //     if (
+  //       cIntersectedObject != collidableObjects[0].object &&
+  //       cIntersectedObject != null
+  //     ) {
+  //       OnHoverEnd(cIntersectedObject);
+  //     }
 
-      // Hover Start
-      if (!bIsHovering) {
-        cIntersectedObject = collidableObjects[0].object;
-        OnHoverStart(cIntersectedObject);
-        bIsHovering = true;
-      }
-    }
-  } else if (cIntersectedObject != null) {
-    // Hover End
-    OnHoverEnd(cIntersectedObject);
-    cIntersectedObject = null;
-    bIsHovering = false;
-  }
+  //     // Hover Start
+  //     if (!bIsHovering) {
+  //       cIntersectedObject = collidableObjects[0].object;
+  //       OnHoverStart(cIntersectedObject);
+  //       bIsHovering = true;
+  //     }
+  //   }
+  // } else if (cIntersectedObject != null) {
+  //   // Hover End
+  //   OnHoverEnd(cIntersectedObject);
+  //   cIntersectedObject = null;
+  //   bIsHovering = false;
+  // }
 }
 window.addEventListener("mousemove", (event) => {
   // Convert mouse position to normalized device coordinates (-1 to +1)
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-  // Update the raycaster with the camera and mouse position
-  raycaster.setFromCamera(mouse, camera);
+  // Update the raycaster with the mainCamera and mouse position
+  raycaster.setFromCamera(mouse, mainCamera);
   OnMouseMove();
 });
 window.addEventListener("mousedown", (event) => {
@@ -587,6 +580,100 @@ window.addEventListener("mouseup", (event) => {
   }
   bMouseDown = false;
 });
+
+function addMainSceneObjects() {
+  // Add Ground Plane
+  const plane = new THREE.CircleGeometry(5, 16);
+  const gpmat = new THREE.ShaderMaterial({
+    uniforms: {
+      uRadius: { value: 1 }, // Radius of the circle (relative to the plane)
+      uEdgeFade: { value: 1.5 }, // Distance over which to fade out
+      uColor: { value: new THREE.Color(0xffffff) }, // Color of the plane
+    },
+    vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+      `,
+    fragmentShader: /* glsl */ `
+          uniform float uRadius;
+          uniform float uEdgeFade;
+          uniform vec3 uColor;
+          varying vec2 vUv;
+          void main() {
+              // Calculate distance from the center of the plane
+              float dist = length(vUv - vec2(0.5, 0.5)) * 2.0;
+
+              // Calculate the alpha based on distance from the center
+              float alpha = 1.0 - smoothstep(uRadius- uEdgeFade, uRadius , dist);
+
+              // Apply the color and fade out the edges
+              gl_FragColor = vec4(uColor, alpha * 0.25f);
+          }
+      `,
+    transparent: true, // Enable transparency for fade-out effect
+  });
+  groundPlane = new THREE.Mesh(plane, gpmat);
+  groundPlane.position.y = 0.05;
+  groundPlane.rotateX(-Math.PI / 2);
+  mainScene.add(groundPlane);
+}
+
+async function addBtnSceneObjects() {
+  // Load the font and create 3D text
+  const loader = new FontLoader(loadingManager);
+  await loader.loadAsync(
+    "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json"
+  );
+
+  const textureLoader = new THREE.TextureLoader(loadingManager);
+  const projectTex = textureLoader.load("assets/textures/ProjectsText.png");
+  const aboutMeTex = textureLoader.load("assets/textures/AboutMeText.png");
+  const resumeTex = textureLoader.load("assets/textures/ResumeText.png");
+
+  const planeGeometry = new THREE.PlaneGeometry(3, 3); // width, height
+  const projectsMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    side: THREE.DoubleSide,
+    map: projectTex,
+    transparent: true
+  });
+  const aboutMeMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    side: THREE.DoubleSide,
+    map: aboutMeTex,
+    transparent: true
+  });
+  const resumeMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    side: THREE.DoubleSide,
+    map: resumeTex,
+    transparent: true
+  });
+
+  const textParentObj =  new THREE.Group();
+  textParentObj.position.x = 2.5;
+  textParentObj.position.y = 0.075;
+
+  textParentObj.rotation.x = -Math.PI * 0.5;
+  textParentObj.rotation.z = Math.PI * 0.5;
+  btnsScene.add(textParentObj);
+
+  const projectsTextPlane = new THREE.Mesh(planeGeometry, projectsMaterial);
+  const aboutMeTextPlane = new THREE.Mesh(planeGeometry, aboutMeMaterial);
+  const resumeTextPlane = new THREE.Mesh(planeGeometry, resumeMaterial);
+  textParentObj.add(projectsTextPlane);
+  textParentObj.add(aboutMeTextPlane);
+  textParentObj.add(resumeTextPlane);
+
+  aboutMeTextPlane.position.y = -1;
+  aboutMeTextPlane.position.z = 0.01;
+
+  resumeTextPlane.position.y = -2;
+  resumeTextPlane.position.z = 0.02;
+}
 
 function initParticles() {
   particlesScene = new THREE.Scene();
@@ -649,11 +736,10 @@ function updateParticles() {
   particleSystem.geometry.attributes.position.needsUpdate = true;
   particleSystem.geometry.attributes.color.needsUpdate = true;
 }
-function animate() {
-  deltaTime = clock.getDelta();
 
+function update() {
   const cForwardVector = new THREE.Vector3();
-  camera.getWorldDirection(cForwardVector);
+  mainCamera.getWorldDirection(cForwardVector);
   if (projectsButton != null) {
     if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
       projectsButton.visible = true;
@@ -663,19 +749,19 @@ function animate() {
   }
 
   if (bGoingToComputer) {
-    // Define where to position the camera to focus nicely on the target
-    camera.position.lerp(cameraComputerLocation, 0.05); // Smoothly interpolate the position
+    // Define where to position the mainCamera to focus nicely on the target
+    mainCamera.position.lerp(cameraComputerLocation, 0.05); // Smoothly interpolate the position
 
-    // Create a temporary camera to calculate target quaternion
-    const tempCamera = camera.clone();
+    // Create a temporary mainCamera to calculate target quaternion
+    const tempCamera = mainCamera.clone();
     tempCamera.lookAt(cameraComputerLookLocation);
 
-    // Smoothly interpolate the camera rotation
-    camera.quaternion.slerp(tempCamera.quaternion, 0.05);
+    // Smoothly interpolate the mainCamera rotation
+    mainCamera.quaternion.slerp(tempCamera.quaternion, 0.05);
 
     const l = Math.abs(
       new THREE.Vector3()
-        .subVectors(cameraComputerLocation, camera.position)
+        .subVectors(cameraComputerLocation, mainCamera.position)
         .length()
     );
     if (l < 0.01) {
@@ -694,11 +780,13 @@ function animate() {
   }
 
   if (bReturnToScene) {
-    camera.position.lerp(camPrevLocation, 0.05); // Smoothly interpolate the position
-    camera.quaternion.slerp(camPrevRotation, 0.05);
+    mainCamera.position.lerp(camPrevLocation, 0.05); // Smoothly interpolate the position
+    mainCamera.quaternion.slerp(camPrevRotation, 0.05);
 
     const l = Math.abs(
-      new THREE.Vector3().subVectors(camPrevLocation, camera.position).length()
+      new THREE.Vector3()
+        .subVectors(camPrevLocation, mainCamera.position)
+        .length()
     );
     if (l < 0.01) {
       bReturnToScene = false;
@@ -725,13 +813,41 @@ function animate() {
   // Render
   stats.update();
 
+  if (spaceStationSceneMixer) {
+    spaceStationSceneMixer.update(deltaTime);
+  }
+}
+function render() {
   stats.begin();
-  renderer.clear();
+  gAppCanvas.Renderer.clear();
   btnComposer.render();
-  renderer.clearDepth();
-  renderer.render(mainScene, camera);
-  renderer.render(particlesScene, camera);
+  gAppCanvas.Renderer.clearDepth();
+  gAppCanvas.Renderer.render(mainScene, mainCamera);
+  gAppCanvas.Renderer.render(particlesScene, mainCamera);
   stats.end();
+}
+
+async function preLoadAnimate() {
+  deltaTime = clock.getDelta();
+
+  if (bAssetsLoadCompleted == false) {
+    if (lineGenerator) {
+      lineGenerator.update();
+    }
+
+    gAppCanvas.Renderer.clear();
+    gAppCanvas.Renderer.render(loadingScene, loadingCamera);
+
+    // Call animate again on the next frame
+    window.requestAnimationFrame(() => preLoadAnimate());
+  }
+}
+function animate() {
+  deltaTime = clock.getDelta();
+
+  update();
+  render();
+
   // Call animate again on the next frame
   window.requestAnimationFrame(() => animate());
 }
@@ -743,12 +859,11 @@ class MainEntry {
 
   async OnAppStart() {
     // Initialize the template
-    await new LoadMeshes();
+    initMeshes();
 
     initLoadScreen();
-    initScene();
+    initScenes();
     initCamera();
-    initRenderer();
     initLights();
     initControls();
     addEventListeners();
@@ -759,20 +874,23 @@ class MainEntry {
 
     document.body.appendChild(stats.domElement);
 
-    if (renderer) {
-      renderer.domElement.addEventListener("touchstart", function (event) {
-        event.preventDefault();
-        // Calculate touch position in normalized device coordinates
-        mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
-        // Update the raycaster with the touch position
-        raycaster.setFromCamera(mouse, camera);
-        OnMouseMove();
-        OnMouseDown();
-      });
+    if (gAppCanvas.Renderer) {
+      gAppCanvas.Renderer.domElement.addEventListener(
+        "touchstart",
+        function (event) {
+          event.preventDefault();
+          // Calculate touch position in normalized device coordinates
+          mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+          // Update the raycaster with the touch position
+          raycaster.setFromCamera(mouse, mainCamera);
+          OnMouseMove();
+          OnMouseDown();
+        }
+      );
     }
 
-    animate();
+    preLoadAnimate();
   }
 }
 

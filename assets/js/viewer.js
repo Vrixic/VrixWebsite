@@ -82,7 +82,7 @@ const mouse = new THREE.Vector2(); // Normalized mouse coordinates
 
 const stats = new Stats();
 
-const sceneScale = 3;
+const sceneScale = 1;
 
 var bGoingToComputer = false,
   bReturnToScene = false,
@@ -95,6 +95,8 @@ var cameraComputerLocation = new THREE.Vector3(1.5, 10.5, 1.1);
 var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 
 var deltaTime = 0.0;
+
+var botHead;
 
 /**
  * @type {THREE.Points}
@@ -195,6 +197,35 @@ function initMeshes() {
     .loadAsync("assets/models/gltf/cyberpunk_micro-apartments/scene.gltf")
     .then(function (gltf) {
       cyberHomeScene = gltf.scene;
+
+      gltf.scene.children.forEach((child) => {
+        if (child.name == "RootBot") {
+          child.scale.set(0.5, 0.5, 0.5);
+        }
+      });
+
+      mainScene.add(gltf.scene);
+    });
+
+  gltfLoader
+    .loadAsync(
+      "assets/models/gltf/cyberpunk_micro-apartments/SM_Bottington_V.glb"
+    )
+    .then(function (gltf) {
+      gltf.scene.children.forEach((child) => {
+        if (child.name == "RootBot") {
+          child.scale.set(0.5, 0.5, 0.5);
+
+          child.children.forEach((rbChild) => {
+            if (rbChild.name == "SM_Bottington002") {
+              botHead = rbChild;
+            }
+          });
+        }
+      });
+      console.log(gltf.scene.children);
+
+      gltf.scene.position.z = 4;
       mainScene.add(gltf.scene);
     });
 }
@@ -452,18 +483,21 @@ function initCamera() {
 }
 
 function initLights() {
-  const ambientLight = new THREE.AmbientLight(0x11ffff);
-  const directionalLight = new THREE.DirectionalLight(0x11ffff, 1);
+  const ambientLight = new THREE.AmbientLight(0xffffff);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 
   const pl0 = new THREE.PointLight(
     0xff0000,
     250000 * sceneScale,
     1000000 * sceneScale
   );
-  pl0.position.y = 5;
+  pl0.position.y = -5;
 
   mainScene.add(ambientLight, directionalLight);
-  //btnsScene.add(pl0);
+
+  const ambientLight2 = new THREE.AmbientLight(0xffffff);
+  const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1);
+  btnsScene.add(ambientLight2, directionalLight2, pl0);
 }
 
 function initControls() {
@@ -638,22 +672,22 @@ async function addBtnSceneObjects() {
     color: 0xffffff,
     side: THREE.DoubleSide,
     map: projectTex,
-    transparent: true
+    transparent: true,
   });
   const aboutMeMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     side: THREE.DoubleSide,
     map: aboutMeTex,
-    transparent: true
+    transparent: true,
   });
   const resumeMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     side: THREE.DoubleSide,
     map: resumeTex,
-    transparent: true
+    transparent: true,
   });
 
-  const textParentObj =  new THREE.Group();
+  const textParentObj = new THREE.Group();
   textParentObj.position.x = 2.5;
   textParentObj.position.y = 0.075;
 
@@ -738,14 +772,35 @@ function updateParticles() {
 }
 
 function update() {
-  const cForwardVector = new THREE.Vector3();
-  mainCamera.getWorldDirection(cForwardVector);
-  if (projectsButton != null) {
-    if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
-      projectsButton.visible = true;
-    } else {
-      projectsButton.visible = false;
-    }
+  // const cForwardVector = new THREE.Vector3();
+  // mainCamera.getWorldDirection(cForwardVector);
+  // if (projectsButton != null) {
+  //   if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
+  //     projectsButton.visible = true;
+  //   } else {
+  //     projectsButton.visible = false;
+  //   }
+  // }
+
+  if (botHead) {
+    // Add this inside your animation loop
+    const lagFactor = 0.05; // Adjust this value for more or less lag
+
+    // Clone the camera position and zero out the Y-axis for restricted rotation
+    const targetPosition = mainCamera.position.clone();
+    targetPosition.y = botHead.position.y;
+
+    // Compute the target quaternion for looking at the camera's position
+    const targetQuaternion = new THREE.Quaternion();
+    const currentQuat =  new THREE.Quaternion();
+
+    currentQuat.copy(botHead.quaternion);
+    botHead.lookAt(targetPosition);
+    targetQuaternion.copy(botHead.quaternion);
+
+    // Smoothly interpolate the object's current quaternion towards the target quaternion
+    botHead.quaternion.copy(currentQuat);
+    botHead.quaternion.slerp(targetQuaternion, lagFactor);
   }
 
   if (bGoingToComputer) {

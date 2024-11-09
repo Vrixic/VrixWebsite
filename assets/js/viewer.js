@@ -97,6 +97,10 @@ var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 var deltaTime = 0.0;
 
 var botHead;
+var botHeadMixer;
+var botHeadEyeBlinkAction;
+
+var botHeadCursor;
 
 /**
  * @type {THREE.Points}
@@ -191,6 +195,15 @@ function deepClone(object) {
   return clone;
 }
 
+function blinkEyesLoop(action) {
+  const secs = Math.random() * 10000 + 1000;
+  setTimeout(() => {
+    action.reset();
+    action.play();
+    blinkEyesLoop(action);
+  }, secs);
+}
+
 function initMeshes() {
   gltfLoader = new GLTFLoader(loadingManager);
   gltfLoader
@@ -208,25 +221,32 @@ function initMeshes() {
     });
 
   gltfLoader
-    .loadAsync(
-      "assets/models/gltf/cyberpunk_micro-apartments/SM_Bottington_V.glb"
-    )
+    .loadAsync("assets/models/gltf/SM_Bottington_V.glb")
     .then(function (gltf) {
-      gltf.scene.children.forEach((child) => {
-        if (child.name == "RootBot") {
-          child.scale.set(0.5, 0.5, 0.5);
+      const rootBot = gltf.scene.getObjectByName("RootBot");
+      rootBot.scale.set(0.5, 0.5, 0.5);
 
-          child.children.forEach((rbChild) => {
-            if (rbChild.name == "SM_Bottington002") {
-              botHead = rbChild;
-            }
-          });
-        }
-      });
-      console.log(gltf.scene.children);
+      botHead = rootBot.getObjectByName("SM_Bottington002");
 
-      gltf.scene.position.z = 4;
+      botHeadMixer = new THREE.AnimationMixer(gltf.scene);
+      botHeadEyeBlinkAction = botHeadMixer.clipAction(gltf.animations[0]);
+      botHeadEyeBlinkAction.setLoop(THREE.LoopOnce);
+      botHeadEyeBlinkAction.clampWhenFinished = true;
+      botHeadEyeBlinkAction.timeScale = 10;
+
+      blinkEyesLoop(botHeadEyeBlinkAction);
+
+      gltf.scene.position.z = 4.5;
       mainScene.add(gltf.scene);
+
+      // Bot Head that follows cursor 
+      var copyScene = deepClone(gltf.scene);
+      copyScene.position.z = -4;
+
+      const rootBotCursor = copyScene.getObjectByName("RootBot");
+      botHeadCursor = rootBotCursor.getObjectByName("SM_Bottington002");
+
+      mainScene.add(copyScene);
     });
 }
 
@@ -476,9 +496,9 @@ function initCamera() {
     500
   );
 
-  mainCamera.position.x = 25;
-  mainCamera.position.y = 12.5;
-  mainCamera.position.z = 0.5;
+  mainCamera.position.x = 8;
+  mainCamera.position.y = 5;
+  mainCamera.position.z = 0;
   mainCamera.lookAt(0, 0, 0);
 }
 
@@ -667,7 +687,8 @@ async function addBtnSceneObjects() {
   const aboutMeTex = textureLoader.load("assets/textures/AboutMeText.png");
   const resumeTex = textureLoader.load("assets/textures/ResumeText.png");
 
-  const planeGeometry = new THREE.PlaneGeometry(3, 3); // width, height
+  const planeGeometry = new THREE.PlaneGeometry(3, 1); // width, height
+  planeGeometry.computeBoundingBox();
   const projectsMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     side: THREE.DoubleSide,
@@ -703,10 +724,7 @@ async function addBtnSceneObjects() {
   textParentObj.add(resumeTextPlane);
 
   aboutMeTextPlane.position.y = -1;
-  aboutMeTextPlane.position.z = 0.01;
-
   resumeTextPlane.position.y = -2;
-  resumeTextPlane.position.z = 0.02;
 }
 
 function initParticles() {
@@ -782,17 +800,20 @@ function update() {
   //   }
   // }
 
-  if (botHead) {
-    // Add this inside your animation loop
-    const lagFactor = 0.05; // Adjust this value for more or less lag
+  if (botHeadMixer) {
+    botHeadMixer.update(deltaTime);
+  }
+  
+  const lagFactor = 0.05; // Adjust this value for more or less lag
 
+  // Compute the target quaternion for looking at the camera's position
+  const targetQuaternion = new THREE.Quaternion();
+  const currentQuat = new THREE.Quaternion();
+
+  if (botHead) {
     // Clone the camera position and zero out the Y-axis for restricted rotation
     const targetPosition = mainCamera.position.clone();
     targetPosition.y = botHead.position.y;
-
-    // Compute the target quaternion for looking at the camera's position
-    const targetQuaternion = new THREE.Quaternion();
-    const currentQuat =  new THREE.Quaternion();
 
     currentQuat.copy(botHead.quaternion);
     botHead.lookAt(targetPosition);
@@ -801,6 +822,27 @@ function update() {
     // Smoothly interpolate the object's current quaternion towards the target quaternion
     botHead.quaternion.copy(currentQuat);
     botHead.quaternion.slerp(targetQuaternion, lagFactor);
+  }
+
+  if(botHeadCursor)
+  {
+     // Define a plane or objects where you want to project the ray
+    const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const targetPosition = new THREE.Vector3();
+
+    // Intersect the ray with the plane to get the 3D world position
+    raycaster.ray.intersectPlane(planeZ, targetPosition);
+    
+    // Clone the camera position and zero out the Y-axis for restricted rotation
+    targetPosition.y = botHeadCursor.position.y;
+
+    currentQuat.copy(botHeadCursor.quaternion);
+    botHeadCursor.lookAt(targetPosition);
+    targetQuaternion.copy(botHeadCursor.quaternion);
+
+    // Smoothly interpolate the object's current quaternion towards the target quaternion
+    botHeadCursor.quaternion.copy(currentQuat);
+    botHeadCursor.quaternion.slerp(targetQuaternion, lagFactor);
   }
 
   if (bGoingToComputer) {

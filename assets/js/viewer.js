@@ -25,12 +25,15 @@ import { FXAAEffect } from "postprocessing";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
+import { MeshLine, MeshLineMaterial } from "three.meshline";
+
 import LineGenerator from "./objects/LineGenerator.js";
 import Stars from "./objects/Stars.js";
 
 import getRandomFloat from "./utils/getRandomFloat.js";
 import getRandomItem from "./utils/getRandomItem.js";
 import AppCanvas from "./graphics/AppCanvas.js";
+import PlaneTextButton3D from "./graphics/PlaneTextButton3D.js";
 
 var gltfLoader, spaceStationScene, cyberHomeScene, loadingManager;
 /**
@@ -57,10 +60,6 @@ var groundPlane;
  * @type {THREE.Scene}
  */
 var mainScene, btnsScene, loadingScene;
-/**
- * @type {THREE.Mesh}
- */
-var projectsButton, projectsLineText;
 /**
  * @type {THREE.Clock}
  */
@@ -101,6 +100,17 @@ var botHeadMixer;
 var botHeadEyeBlinkAction;
 
 var botHeadCursor;
+var botHeadCursorEyeLeft;
+var botHeadCursorEyeRight;
+
+var botHeadCursorMeshLeft;
+var botHeadCursorMeshRight;
+
+var botHeadCursorMeshLineLeft;
+var botHeadCursorMeshLineRight;
+
+var botHeadCursorMeshLineLeftPoints = [];
+var botHeadCursorMeshLineRightPoints = [];
 
 /**
  * @type {THREE.Points}
@@ -239,12 +249,14 @@ function initMeshes() {
       gltf.scene.position.z = 4.5;
       mainScene.add(gltf.scene);
 
-      // Bot Head that follows cursor 
+      // Bot Head that follows cursor
       var copyScene = deepClone(gltf.scene);
       copyScene.position.z = -4;
 
       const rootBotCursor = copyScene.getObjectByName("RootBot");
       botHeadCursor = rootBotCursor.getObjectByName("SM_Bottington002");
+      botHeadCursorEyeLeft = botHeadCursor.getObjectByName("EyeLeft");
+      botHeadCursorEyeRight = botHeadCursor.getObjectByName("EyeRight");
 
       mainScene.add(copyScene);
     });
@@ -551,65 +563,136 @@ function onResize() {
 var cIntersectedObject;
 var bMouseDown, bIsHovering;
 
-function OnHoverStart() {
-  cIntersectedObject.material.color.set(0x00ffff); // Change color to pink
-  cIntersectedObject.scale.x = 1.15;
-  cIntersectedObject.scale.y = 1.15;
-  cIntersectedObject.scale.z = 1.15;
+function CreateBotMeshLine(startPoint, endPoint, meshLine, points) {
+  const direction = new THREE.Vector3().subVectors(endPoint, startPoint);
+
+  // Define the points for your line
+  points = [];
+
+  const numPoints = 20;
+  for (let i = 0; i <= numPoints; i++) {
+    points.push(startPoint.clone().addScaledVector(direction, (i / numPoints)));
+
+    if(i > 0 && i < numPoints)
+    {
+      points[i].y += Math.sin(i + clock.getElapsedTime() * (bMouseDown ? 5 : 1 )) * 0.1 ;
+
+    }
+  }
+
+  // Convert points array to a flat array
+  const linePoints = points.flatMap((p) => [p.x, p.y, p.z]);
+
+  // Create MeshLine geometry
+  if(!meshLine)
+  {
+    meshLine = new MeshLine();
+  }
+  meshLine.setPoints(linePoints);
+
+  // Create MeshLine material with desired width
+  const material = new MeshLineMaterial({
+    color: bMouseDown ? 0x00ff00 : 0xff0000, // Line color
+    lineWidth: 0.1, // Line width in world units
+    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight), // Required for sizing
+    sizeAttenuation: true, // Makes the line width perspective-correct
+  });
+
+  // Create a mesh with MeshLine geometry and material
+  return new THREE.Mesh(meshLine, material);
 }
 
-function OnHoverEnd() {
-  cIntersectedObject.material.color.set(0xff00ff); // Change color to pink
+function UpdateBotHeadCursorEyesMeshLine() {
+  if (botHeadCursorMeshLeft) {
+    mainScene.remove(botHeadCursorMeshLeft);
+  }
+  if (botHeadCursorMeshRight) {
+    mainScene.remove(botHeadCursorMeshRight);
+  }
+  if (!bIsHovering) {
+    return;
+  }
+
+  const startPoint = new THREE.Vector3();
+  const endPoint = new THREE.Vector3();
+  botHeadCursorEyeLeft.getWorldPosition(startPoint);
+
+  const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  raycaster.ray.intersectPlane(planeZ, endPoint);
+
+  endPoint.y += 0.1;
+
+  // Create a mesh with MeshLine geometry and material
+  botHeadCursorMeshLeft = CreateBotMeshLine(startPoint, endPoint, botHeadCursorMeshLineLeft, botHeadCursorMeshLineLeftPoints);
+
+  botHeadCursorEyeRight.getWorldPosition(startPoint);
+  botHeadCursorMeshRight = CreateBotMeshLine(startPoint, endPoint, botHeadCursorMeshLineLeft, botHeadCursorMeshLineRightPoints);
+
+  mainScene.add(botHeadCursorMeshLeft);
+  mainScene.add(botHeadCursorMeshRight);
+}
+
+function OnHoverStart(btn) {
+  if (btn.OnHoverStart) {
+    btn.OnHoverStart(btn);
+  }
+}
+
+function OnHoverEnd(btn) {
+  if (btn.OnHoverEnd) {
+    btn.OnHoverEnd(btn);
+  }
   camControls.rotateSpeed = 0.25;
-  cIntersectedObject.scale.x = 1;
-  cIntersectedObject.scale.y = 1;
-  cIntersectedObject.scale.z = 1;
 }
 
-function OnMouseDown() {
-  cIntersectedObject.material.color.set(0x00ff00); // Change color to pink
+function OnMouseDown(btn) {
+  if (btn.OnMouseDown) {
+    btn.OnMouseDown(btn);
+  }
   camControls.rotateSpeed = 0.0;
 
-  camPrevLocation.copy(mainCamera.position);
-  camPrevRotation.copy(mainCamera.quaternion);
-  bGoingToComputer = true;
-  camProgress = 0;
+  // camPrevLocation.copy(mainCamera.position);
+  // camPrevRotation.copy(mainCamera.quaternion);
+  // bGoingToComputer = true;
+  // camProgress = 0;
 }
 
-function OnMouseUp() {
-  cIntersectedObject.material.color.set(0xff00ff); // Change color to pink
+function OnMouseUp(btn) {
+  if (btn.OnMouseUp) {
+    btn.OnMouseUp(btn);
+  }
   camControls.rotateSpeed = 0.25;
 }
 function OnMouseMove() {
   const intersected = raycaster.intersectObject(btnsScene);
 
-  // const collidableObjects = intersected.filter((intersect) => {
-  //   return intersect.object.id == projectsButton.id;
-  // });
+  const collidableObjects = intersected.filter((intersect) => {
+    return intersect.object instanceof PlaneTextButton3D;
+  });
 
-  // if (collidableObjects.length > 0) {
-  //   if (!bMouseDown) {
-  //     // Hover End
-  //     if (
-  //       cIntersectedObject != collidableObjects[0].object &&
-  //       cIntersectedObject != null
-  //     ) {
-  //       OnHoverEnd(cIntersectedObject);
-  //     }
+  if (collidableObjects.length > 0) {
+    if (!bMouseDown) {
+      // Hover End
+      if (
+        cIntersectedObject != collidableObjects[0].object &&
+        cIntersectedObject != null
+      ) {
+        OnHoverEnd(cIntersectedObject);
+      }
 
-  //     // Hover Start
-  //     if (!bIsHovering) {
-  //       cIntersectedObject = collidableObjects[0].object;
-  //       OnHoverStart(cIntersectedObject);
-  //       bIsHovering = true;
-  //     }
-  //   }
-  // } else if (cIntersectedObject != null) {
-  //   // Hover End
-  //   OnHoverEnd(cIntersectedObject);
-  //   cIntersectedObject = null;
-  //   bIsHovering = false;
-  // }
+      // Hover Start
+      if (!bIsHovering) {
+        cIntersectedObject = collidableObjects[0].object;
+        OnHoverStart(cIntersectedObject);
+        bIsHovering = true;
+      }
+    }
+  } else if (cIntersectedObject != null) {
+    // Hover End
+    OnHoverEnd(cIntersectedObject);
+    cIntersectedObject = null;
+    bIsHovering = false;
+  }
 }
 window.addEventListener("mousemove", (event) => {
   // Convert mouse position to normalized device coordinates (-1 to +1)
@@ -623,14 +706,14 @@ window.addEventListener("mousemove", (event) => {
 window.addEventListener("mousedown", (event) => {
   // Check if the ray intersects with the cube
   if (cIntersectedObject != null) {
-    OnMouseDown();
+    OnMouseDown(cIntersectedObject);
   }
   bMouseDown = true;
 });
 window.addEventListener("mouseup", (event) => {
   // Check if the ray intersects with the cube
   if (cIntersectedObject != null) {
-    OnMouseUp();
+    OnMouseUp(cIntersectedObject);
   }
   bMouseDown = false;
 });
@@ -676,38 +759,6 @@ function addMainSceneObjects() {
 }
 
 async function addBtnSceneObjects() {
-  // Load the font and create 3D text
-  const loader = new FontLoader(loadingManager);
-  await loader.loadAsync(
-    "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json"
-  );
-
-  const textureLoader = new THREE.TextureLoader(loadingManager);
-  const projectTex = textureLoader.load("assets/textures/ProjectsText.png");
-  const aboutMeTex = textureLoader.load("assets/textures/AboutMeText.png");
-  const resumeTex = textureLoader.load("assets/textures/ResumeText.png");
-
-  const planeGeometry = new THREE.PlaneGeometry(3, 1); // width, height
-  planeGeometry.computeBoundingBox();
-  const projectsMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-    map: projectTex,
-    transparent: true,
-  });
-  const aboutMeMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-    map: aboutMeTex,
-    transparent: true,
-  });
-  const resumeMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-    map: resumeTex,
-    transparent: true,
-  });
-
   const textParentObj = new THREE.Group();
   textParentObj.position.x = 2.5;
   textParentObj.position.y = 0.075;
@@ -716,15 +767,28 @@ async function addBtnSceneObjects() {
   textParentObj.rotation.z = Math.PI * 0.5;
   btnsScene.add(textParentObj);
 
-  const projectsTextPlane = new THREE.Mesh(planeGeometry, projectsMaterial);
-  const aboutMeTextPlane = new THREE.Mesh(planeGeometry, aboutMeMaterial);
-  const resumeTextPlane = new THREE.Mesh(planeGeometry, resumeMaterial);
-  textParentObj.add(projectsTextPlane);
-  textParentObj.add(aboutMeTextPlane);
-  textParentObj.add(resumeTextPlane);
+  const textureLoader = new THREE.TextureLoader(loadingManager);
+  textureLoader
+    .loadAsync("assets/textures/ProjectsText.png")
+    .then(function (texture) {
+      const projectsTextPlane = new PlaneTextButton3D(texture);
+      textParentObj.add(projectsTextPlane);
+    });
+  textureLoader
+    .loadAsync("assets/textures/AboutMeText.png")
+    .then(function (texture) {
+      const aboutMeTextPlane = new PlaneTextButton3D(texture);
+      textParentObj.add(aboutMeTextPlane);
 
-  aboutMeTextPlane.position.y = -1;
-  resumeTextPlane.position.y = -2;
+      aboutMeTextPlane.position.y = -1;
+    });
+  textureLoader
+    .loadAsync("assets/textures/ResumeText.png")
+    .then(function (texture) {
+      const resumeTextPlane = new PlaneTextButton3D(texture);
+      textParentObj.add(resumeTextPlane);
+      resumeTextPlane.position.y = -2;
+    });
 }
 
 function initParticles() {
@@ -790,20 +854,22 @@ function updateParticles() {
 }
 
 function update() {
-  // const cForwardVector = new THREE.Vector3();
-  // mainCamera.getWorldDirection(cForwardVector);
-  // if (projectsButton != null) {
-  //   if (cForwardVector.dot(new THREE.Vector3(1, 0, 0)) <= 0) {
-  //     projectsButton.visible = true;
-  //   } else {
-  //     projectsButton.visible = false;
-  //   }
-  // }
-
   if (botHeadMixer) {
     botHeadMixer.update(deltaTime);
   }
-  
+
+  UpdateBotHeadCursorEyesMeshLine();
+
+  if(botHeadCursorMeshLineLeftPoints && botHeadCursorMeshLineLeft)
+  {
+    botHeadCursorMeshLineLeftPoints.forEach((point, i) => {
+      point.y = Math.sin(i + clock.getElapsedTime());  // Animate y-position with a sine function
+    });
+    const linePoints = botHeadCursorMeshLineLeftPoints.flatMap((p) => [p.x, p.y, p.z]);
+
+    botHeadCursorMeshLineLeft.setPoints(linePoints);
+  }
+
   const lagFactor = 0.05; // Adjust this value for more or less lag
 
   // Compute the target quaternion for looking at the camera's position
@@ -824,15 +890,14 @@ function update() {
     botHead.quaternion.slerp(targetQuaternion, lagFactor);
   }
 
-  if(botHeadCursor)
-  {
-     // Define a plane or objects where you want to project the ray
+  if (botHeadCursor) {
+    // Define a plane or objects where you want to project the ray
     const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const targetPosition = new THREE.Vector3();
 
     // Intersect the ray with the plane to get the 3D world position
     raycaster.ray.intersectPlane(planeZ, targetPosition);
-    
+
     // Clone the camera position and zero out the Y-axis for restricted rotation
     targetPosition.y = botHeadCursor.position.y;
 

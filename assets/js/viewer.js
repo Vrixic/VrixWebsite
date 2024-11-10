@@ -598,7 +598,7 @@ function UpdateBotHeadCursorEyesMeshLine() {
 
   endPoint.y += 0.1;
 
-  // Create MeshLine geometry
+  // Create MeshLine geometries
   if (!botHeadCursorMeshLineLeft) {
     botHeadCursorMeshLineLeft = new MeshLine();
   }

@@ -109,8 +109,7 @@ var botHeadCursorMeshRight;
 var botHeadCursorMeshLineLeft;
 var botHeadCursorMeshLineRight;
 
-var botHeadCursorMeshLineLeftPoints = [];
-var botHeadCursorMeshLineRightPoints = [];
+var botHeadCursorMeshLineMaterial;
 
 /**
  * @type {THREE.Points}
@@ -563,53 +562,30 @@ function onResize() {
 var cIntersectedObject;
 var bMouseDown, bIsHovering;
 
-function CreateBotMeshLine(startPoint, endPoint, meshLine, points) {
+function GenerateMeshLinePoints(startPoint, endPoint) {
   const direction = new THREE.Vector3().subVectors(endPoint, startPoint);
 
-  // Define the points for your line
-  points = [];
-
+  let points = [];
   const numPoints = 20;
   for (let i = 0; i <= numPoints; i++) {
-    points.push(startPoint.clone().addScaledVector(direction, (i / numPoints)));
-
-    if(i > 0 && i < numPoints)
-    {
-      points[i].y += Math.sin(i + clock.getElapsedTime() * (bMouseDown ? 5 : 1 )) * 0.1 ;
-
+    points.push(startPoint.clone().addScaledVector(direction, i / numPoints));
+    if (i > 0 && i < numPoints) {
+      points[i].y +=
+        Math.sin(i + clock.getElapsedTime() * (bMouseDown ? 5 : 1)) * 0.1;
     }
   }
 
-  // Convert points array to a flat array
-  const linePoints = points.flatMap((p) => [p.x, p.y, p.z]);
-
-  // Create MeshLine geometry
-  if(!meshLine)
-  {
-    meshLine = new MeshLine();
-  }
-  meshLine.setPoints(linePoints);
-
-  // Create MeshLine material with desired width
-  const material = new MeshLineMaterial({
-    color: bMouseDown ? 0x00ff00 : 0xff0000, // Line color
-    lineWidth: 0.1, // Line width in world units
-    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight), // Required for sizing
-    sizeAttenuation: true, // Makes the line width perspective-correct
-  });
-
-  // Create a mesh with MeshLine geometry and material
-  return new THREE.Mesh(meshLine, material);
+  return points;
 }
 
 function UpdateBotHeadCursorEyesMeshLine() {
   if (botHeadCursorMeshLeft) {
-    mainScene.remove(botHeadCursorMeshLeft);
+    botHeadCursorMeshLeft.visible = false;
   }
   if (botHeadCursorMeshRight) {
-    mainScene.remove(botHeadCursorMeshRight);
+    botHeadCursorMeshRight.visible = false;
   }
-  if (!bIsHovering) {
+  if (!bIsHovering || !botHeadCursorEyeLeft || !botHeadCursorEyeRight) {
     return;
   }
 
@@ -622,14 +598,71 @@ function UpdateBotHeadCursorEyesMeshLine() {
 
   endPoint.y += 0.1;
 
+  // Create MeshLine geometry
+  if (!botHeadCursorMeshLineLeft) {
+    botHeadCursorMeshLineLeft = new MeshLine();
+  }
+  if (!botHeadCursorMeshLineRight) {
+    botHeadCursorMeshLineRight = new MeshLine();
+  }
+
   // Create a mesh with MeshLine geometry and material
-  botHeadCursorMeshLeft = CreateBotMeshLine(startPoint, endPoint, botHeadCursorMeshLineLeft, botHeadCursorMeshLineLeftPoints);
+  const leftPoints = GenerateMeshLinePoints(
+    startPoint,
+    endPoint
+  );
 
   botHeadCursorEyeRight.getWorldPosition(startPoint);
-  botHeadCursorMeshRight = CreateBotMeshLine(startPoint, endPoint, botHeadCursorMeshLineLeft, botHeadCursorMeshLineRightPoints);
+  const rightPoints = GenerateMeshLinePoints(
+    startPoint,
+    endPoint
+  );
 
-  mainScene.add(botHeadCursorMeshLeft);
-  mainScene.add(botHeadCursorMeshRight);
+  // Convert points array to a flat array
+  const linePointsLeft = leftPoints.flatMap((p) => [
+    p.x,
+    p.y,
+    p.z,
+  ]);
+  botHeadCursorMeshLineLeft.setPoints(linePointsLeft);
+
+  const linePointsRight = rightPoints.flatMap((p) => [
+    p.x,
+    p.y,
+    p.z,
+  ]);
+  botHeadCursorMeshLineRight.setPoints(linePointsRight);
+
+  // Create MeshLine material with desired width
+    botHeadCursorMeshLineMaterial = new MeshLineMaterial({
+      color: bMouseDown ? 0x00ff00 : 0xff0000, // Line color
+      lineWidth: 0.1, // Line width in world units
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight), // Required for sizing
+      sizeAttenuation: true, // Makes the line width perspective-correct
+    });
+
+  if (!botHeadCursorMeshLeft) {
+    botHeadCursorMeshLeft = new THREE.Mesh(
+      botHeadCursorMeshLineLeft,
+      botHeadCursorMeshLineMaterial
+    );
+    mainScene.add(botHeadCursorMeshLeft);
+  } else {
+    botHeadCursorMeshLeft.visible = true;
+  }
+
+  if (!botHeadCursorMeshRight) {
+    botHeadCursorMeshRight = new THREE.Mesh(
+      botHeadCursorMeshLineRight,
+      botHeadCursorMeshLineMaterial
+    );
+    mainScene.add(botHeadCursorMeshRight);
+  } else {
+    botHeadCursorMeshRight.visible = true;
+  }
+  
+  botHeadCursorMeshLeft.material = botHeadCursorMeshLineMaterial;
+  botHeadCursorMeshRight.material = botHeadCursorMeshLineMaterial;
 }
 
 function OnHoverStart(btn) {
@@ -859,16 +892,6 @@ function update() {
   }
 
   UpdateBotHeadCursorEyesMeshLine();
-
-  if(botHeadCursorMeshLineLeftPoints && botHeadCursorMeshLineLeft)
-  {
-    botHeadCursorMeshLineLeftPoints.forEach((point, i) => {
-      point.y = Math.sin(i + clock.getElapsedTime());  // Animate y-position with a sine function
-    });
-    const linePoints = botHeadCursorMeshLineLeftPoints.flatMap((p) => [p.x, p.y, p.z]);
-
-    botHeadCursorMeshLineLeft.setPoints(linePoints);
-  }
 
   const lagFactor = 0.05; // Adjust this value for more or less lag
 

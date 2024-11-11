@@ -585,7 +585,7 @@ function UpdateBotHeadCursorEyesMeshLine() {
     botHeadCursorMeshRight.visible = false;
   }
   if (
-    (!bIsHovering && !bMouseDown && cIntersectedObject == null) ||
+    (!bIsHovering) ||
     !botHeadCursorEyeLeft ||
     !botHeadCursorEyeRight
   ) {
@@ -729,8 +729,10 @@ function OnTouchMove() {
 
   if (collidableObjects.length > 0) {
     cIntersectedObject = collidableObjects[0].object;
+    bIsHovering = true;
   } else {
     cIntersectedObject = null;
+    bIsHovering =  false;
   }
 }
 
@@ -1089,8 +1091,9 @@ class MainEntry {
         function (event) {
           event.preventDefault();
 
-          cIntersectedObject = null;
           OnMouseUp();
+          cIntersectedObject = null;
+          bIsHovering = false;
         }
       );
       gAppCanvas.Renderer.domElement.addEventListener(
@@ -1098,8 +1101,9 @@ class MainEntry {
         function (event) {
           event.preventDefault();
 
-          cIntersectedObject = null;
           OnMouseUp();
+          cIntersectedObject = null;
+          bIsHovering = false;
         }
       );
     }

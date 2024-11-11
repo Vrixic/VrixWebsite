@@ -571,7 +571,7 @@ function GenerateMeshLinePoints(startPoint, endPoint) {
     points.push(startPoint.clone().addScaledVector(direction, i / numPoints));
     if (i > 0 && i < numPoints) {
       points[i].y +=
-        Math.sin(i + clock.getElapsedTime() * (bMouseDown ? 5 : 1)) * 0.1;
+        Math.sin(i + clock.getElapsedTime() * (bMouseDown ? 10 : 5)) * 0.0105;
     }
   }
 
@@ -596,7 +596,7 @@ function UpdateBotHeadCursorEyesMeshLine() {
   const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   raycaster.ray.intersectPlane(planeZ, endPoint);
 
-  endPoint.y += 0.1;
+  endPoint.x += 0.05;
 
   // Create MeshLine geometries
   if (!botHeadCursorMeshLineLeft) {
@@ -607,39 +607,25 @@ function UpdateBotHeadCursorEyesMeshLine() {
   }
 
   // Create a mesh with MeshLine geometry and material
-  const leftPoints = GenerateMeshLinePoints(
-    startPoint,
-    endPoint
-  );
+  const leftPoints = GenerateMeshLinePoints(startPoint, endPoint);
 
   botHeadCursorEyeRight.getWorldPosition(startPoint);
-  const rightPoints = GenerateMeshLinePoints(
-    startPoint,
-    endPoint
-  );
+  const rightPoints = GenerateMeshLinePoints(startPoint, endPoint);
 
   // Convert points array to a flat array
-  const linePointsLeft = leftPoints.flatMap((p) => [
-    p.x,
-    p.y,
-    p.z,
-  ]);
+  const linePointsLeft = leftPoints.flatMap((p) => [p.x, p.y, p.z]);
   botHeadCursorMeshLineLeft.setPoints(linePointsLeft);
 
-  const linePointsRight = rightPoints.flatMap((p) => [
-    p.x,
-    p.y,
-    p.z,
-  ]);
+  const linePointsRight = rightPoints.flatMap((p) => [p.x, p.y, p.z]);
   botHeadCursorMeshLineRight.setPoints(linePointsRight);
 
   // Create MeshLine material with desired width
-    botHeadCursorMeshLineMaterial = new MeshLineMaterial({
-      color: bMouseDown ? 0x00ff00 : 0xff0000, // Line color
-      lineWidth: 0.1, // Line width in world units
-      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight), // Required for sizing
-      sizeAttenuation: true, // Makes the line width perspective-correct
-    });
+  botHeadCursorMeshLineMaterial = new MeshLineMaterial({
+    color: bMouseDown ? 0x00ff00 : 0xff0000, // Line color
+    lineWidth: 0.1, // Line width in world units
+    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight), // Required for sizing
+    sizeAttenuation: true, // Makes the line width perspective-correct
+  });
 
   if (!botHeadCursorMeshLeft) {
     botHeadCursorMeshLeft = new THREE.Mesh(
@@ -660,7 +646,7 @@ function UpdateBotHeadCursorEyesMeshLine() {
   } else {
     botHeadCursorMeshRight.visible = true;
   }
-  
+
   botHeadCursorMeshLeft.material = botHeadCursorMeshLineMaterial;
   botHeadCursorMeshRight.material = botHeadCursorMeshLineMaterial;
 }
@@ -1061,7 +1047,7 @@ class MainEntry {
 
     if (gAppCanvas.Renderer) {
       gAppCanvas.Renderer.domElement.addEventListener(
-        "touchstart",
+        "touchmove",
         function (event) {
           event.preventDefault();
           // Calculate touch position in normalized device coordinates
@@ -1070,7 +1056,27 @@ class MainEntry {
           // Update the raycaster with the touch position
           raycaster.setFromCamera(mouse, mainCamera);
           OnMouseMove();
+        }
+      );
+      gAppCanvas.Renderer.domElement.addEventListener(
+        "touchstart",
+        function (event) {
+          event.preventDefault();
           OnMouseDown();
+        }
+      );
+      gAppCanvas.Renderer.domElement.addEventListener(
+        "touchend",
+        function (event) {
+          event.preventDefault();
+          OnMouseUp();
+        }
+      );
+      gAppCanvas.Renderer.domElement.addEventListener(
+        "touchcancel",
+        function (event) {
+          event.preventDefault();
+          OnMouseUp();
         }
       );
     }

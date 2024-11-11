@@ -585,7 +585,7 @@ function UpdateBotHeadCursorEyesMeshLine() {
     botHeadCursorMeshRight.visible = false;
   }
   if (
-    (!bIsHovering && !bMouseDown) ||
+    (!bIsHovering && !bMouseDown && cIntersectedObject == null) ||
     !botHeadCursorEyeLeft ||
     !botHeadCursorEyeRight
   ) {

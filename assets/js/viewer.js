@@ -1075,12 +1075,7 @@ class MainEntry {
         function (event) {
           event.preventDefault();
 
-          if (bIsHovering) {
-            OnHoverEnd(cIntersectedObject);
-            cIntersectedObject = null;
-            bIsHovering = false;
-          }
-
+          cIntersectedObject = null;
           OnMouseUp();
         }
       );
@@ -1089,12 +1084,7 @@ class MainEntry {
         function (event) {
           event.preventDefault();
 
-          if (bIsHovering) {
-            OnHoverEnd(cIntersectedObject);
-            cIntersectedObject = null;
-            bIsHovering = false;
-          }
-
+          cIntersectedObject = null;
           OnMouseUp();
         }
       );

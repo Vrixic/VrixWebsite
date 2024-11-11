@@ -688,7 +688,7 @@ function OnMouseUp() {
 
   camControls.rotateSpeed = 0.25;
 }
-function OnMouseMove(bHoverEvents = true) {
+function OnMouseMove() {
   const intersected = raycaster.intersectObject(btnsScene);
 
   const collidableObjects = intersected.filter((intersect) => {
@@ -696,32 +696,40 @@ function OnMouseMove(bHoverEvents = true) {
   });
 
   if (collidableObjects.length > 0) {
-    if (bHoverEvents) {
-      if (!bMouseDown) {
-        // Hover End
-        if (
-          cIntersectedObject != collidableObjects[0].object &&
-          cIntersectedObject != null
-        ) {
-          OnHoverEnd(cIntersectedObject);
-        }
-
-        // Hover Start
-        if (!bIsHovering) {
-          cIntersectedObject = collidableObjects[0].object;
-          OnHoverStart(cIntersectedObject);
-          bIsHovering = true;
-        }
-      } else if (cIntersectedObject != null) {
-        // Hover End
+    if (!bMouseDown) {
+      // Hover End
+      if (
+        cIntersectedObject != collidableObjects[0].object &&
+        cIntersectedObject != null
+      ) {
         OnHoverEnd(cIntersectedObject);
-        cIntersectedObject = null;
-        bIsHovering = false;
       }
-    } else {
-      cIntersectedObject = collidableObjects[0].object;
+
+      // Hover Start
+      if (!bIsHovering) {
+        cIntersectedObject = collidableObjects[0].object;
+        OnHoverStart(cIntersectedObject);
+        bIsHovering = true;
+      }
+    } else if (cIntersectedObject != null) {
+      // Hover End
+      OnHoverEnd(cIntersectedObject);
+      cIntersectedObject = null;
+      bIsHovering = false;
     }
-  } else if (!bHoverEvents) {
+  }
+}
+
+function OnTouchMove() {
+  const intersected = raycaster.intersectObject(btnsScene);
+
+  const collidableObjects = intersected.filter((intersect) => {
+    return intersect.object instanceof PlaneTextButton3D;
+  });
+
+  if (collidableObjects.length > 0) {
+    cIntersectedObject = collidableObjects[0].object;
+  } else {
     cIntersectedObject = null;
   }
 }
@@ -733,7 +741,7 @@ window.addEventListener("mousemove", (event) => {
 
   // Update the raycaster with the mainCamera and mouse position
   raycaster.setFromCamera(mouse, mainCamera);
-  OnMouseMove(false);
+  OnMouseMove();
 });
 window.addEventListener("mousedown", (event) => {
   OnMouseDown();
@@ -1060,7 +1068,7 @@ class MainEntry {
           mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
           // Update the raycaster with the touch position
           raycaster.setFromCamera(mouse, mainCamera);
-          OnMouseMove(false);
+          OnTouchMove();
         }
       );
       gAppCanvas.Renderer.domElement.addEventListener(
@@ -1072,7 +1080,7 @@ class MainEntry {
           mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
           // Update the raycaster with the touch position
           raycaster.setFromCamera(mouse, mainCamera);
-          OnMouseMove(false);
+          OnTouchMove();
           OnMouseDown();
         }
       );

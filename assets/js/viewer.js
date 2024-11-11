@@ -1061,6 +1061,12 @@ class MainEntry {
         "touchstart",
         function (event) {
           event.preventDefault();
+          // Calculate touch position in normalized device coordinates
+          mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+          // Update the raycaster with the touch position
+          raycaster.setFromCamera(mouse, mainCamera);
+          OnMouseMove(false);
           OnMouseDown();
         }
       );

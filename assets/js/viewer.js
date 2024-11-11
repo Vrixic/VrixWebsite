@@ -584,7 +584,11 @@ function UpdateBotHeadCursorEyesMeshLine() {
   if (botHeadCursorMeshRight) {
     botHeadCursorMeshRight.visible = false;
   }
-  if ((!bIsHovering && !bMouseDown) || !botHeadCursorEyeLeft || !botHeadCursorEyeRight) {
+  if (
+    (!bIsHovering && !bMouseDown) ||
+    !botHeadCursorEyeLeft ||
+    !botHeadCursorEyeRight
+  ) {
     return;
   }
 
@@ -684,7 +688,7 @@ function OnMouseUp() {
 
   camControls.rotateSpeed = 0.25;
 }
-function OnMouseMove(bNoHoverEvents = true) {
+function OnMouseMove(bHoverEvents = true) {
   const intersected = raycaster.intersectObject(btnsScene);
 
   const collidableObjects = intersected.filter((intersect) => {
@@ -692,7 +696,7 @@ function OnMouseMove(bNoHoverEvents = true) {
   });
 
   if (collidableObjects.length > 0) {
-    if (bNoHoverEvents) {
+    if (bHoverEvents) {
       if (!bMouseDown) {
         // Hover End
         if (
@@ -717,6 +721,8 @@ function OnMouseMove(bNoHoverEvents = true) {
     } else {
       cIntersectedObject = collidableObjects[0].object;
     }
+  } else if (!bHoverEvents) {
+    cIntersectedObject = null;
   }
 }
 

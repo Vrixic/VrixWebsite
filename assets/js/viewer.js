@@ -577,7 +577,6 @@ function GenerateMeshLinePoints(startPoint, endPoint) {
 
   return points;
 }
-
 function UpdateBotHeadCursorEyesMeshLine() {
   if (botHeadCursorMeshLeft) {
     botHeadCursorMeshLeft.visible = false;
@@ -656,36 +655,33 @@ function OnHoverStart(btn) {
     btn.OnHoverStart(btn);
   }
 }
-
 function OnHoverEnd(btn) {
   if (btn.OnHoverEnd) {
     btn.OnHoverEnd(btn);
   }
-  camControls.rotateSpeed = 0.25;
 }
 
 function OnMouseDown() {
   bMouseDown = true;
-  
+
   if (cIntersectedObject != null && cIntersectedObject.OnMouseDown) {
+    camControls.rotateSpeed = 0.0;
+
     cIntersectedObject.OnMouseDown(cIntersectedObject);
   }
-
-  camControls.rotateSpeed = 0.0;
 
   // camPrevLocation.copy(mainCamera.position);
   // camPrevRotation.copy(mainCamera.quaternion);
   // bGoingToComputer = true;
   // camProgress = 0;
 }
-
 function OnMouseUp() {
   bMouseDown = false;
-  
+
   if (cIntersectedObject != null && cIntersectedObject.OnMouseUp) {
     cIntersectedObject.OnMouseUp(cIntersectedObject);
   }
-  
+
   camControls.rotateSpeed = 0.25;
 }
 function OnMouseMove() {
@@ -719,6 +715,7 @@ function OnMouseMove() {
     bIsHovering = false;
   }
 }
+
 window.addEventListener("mousemove", (event) => {
   // Convert mouse position to normalized device coordinates (-1 to +1)
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;

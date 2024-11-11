@@ -664,10 +664,13 @@ function OnHoverEnd(btn) {
   camControls.rotateSpeed = 0.25;
 }
 
-function OnMouseDown(btn) {
-  if (btn.OnMouseDown) {
-    btn.OnMouseDown(btn);
+function OnMouseDown() {
+  bMouseDown = true;
+  
+  if (cIntersectedObject != null && cIntersectedObject.OnMouseDown) {
+    cIntersectedObject.OnMouseDown(cIntersectedObject);
   }
+
   camControls.rotateSpeed = 0.0;
 
   // camPrevLocation.copy(mainCamera.position);
@@ -676,10 +679,13 @@ function OnMouseDown(btn) {
   // camProgress = 0;
 }
 
-function OnMouseUp(btn) {
-  if (btn.OnMouseUp) {
-    btn.OnMouseUp(btn);
+function OnMouseUp() {
+  bMouseDown = false;
+  
+  if (cIntersectedObject != null && cIntersectedObject.OnMouseUp) {
+    cIntersectedObject.OnMouseUp(cIntersectedObject);
   }
+  
   camControls.rotateSpeed = 0.25;
 }
 function OnMouseMove() {
@@ -723,18 +729,10 @@ window.addEventListener("mousemove", (event) => {
   OnMouseMove();
 });
 window.addEventListener("mousedown", (event) => {
-  // Check if the ray intersects with the cube
-  if (cIntersectedObject != null) {
-    OnMouseDown(cIntersectedObject);
-  }
-  bMouseDown = true;
+  OnMouseDown();
 });
 window.addEventListener("mouseup", (event) => {
-  // Check if the ray intersects with the cube
-  if (cIntersectedObject != null) {
-    OnMouseUp(cIntersectedObject);
-  }
-  bMouseDown = false;
+  OnMouseUp();
 });
 
 function addMainSceneObjects() {
@@ -1069,6 +1067,13 @@ class MainEntry {
         "touchend",
         function (event) {
           event.preventDefault();
+
+          if (bIsHovering) {
+            OnHoverEnd(cIntersectedObject);
+            cIntersectedObject = null;
+            bIsHovering = false;
+          }
+
           OnMouseUp();
         }
       );
@@ -1076,6 +1081,13 @@ class MainEntry {
         "touchcancel",
         function (event) {
           event.preventDefault();
+
+          if (bIsHovering) {
+            OnHoverEnd(cIntersectedObject);
+            cIntersectedObject = null;
+            bIsHovering = false;
+          }
+
           OnMouseUp();
         }
       );

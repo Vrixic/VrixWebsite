@@ -16,19 +16,20 @@
   "dependencies": {
     "@webvoxel/fast-simplex-noise": "^0.0.1-a2",
     "express": "^4.21.1",
+    "gasp": "^0.0.2",
     "gsap": "^3.12.5",
     "postprocessing": "^6.36.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "stats.js": "^0.17.0",
-    "three": "^0.167.0",
+    "three": "^0.168.0",
     "three.meshline": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
-    "@types/three": "^0.167.0",
+    "@types/three": "^0.168.0",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "@vitejs/plugin-react": "^4.2.1",

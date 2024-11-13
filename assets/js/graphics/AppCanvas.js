@@ -8,6 +8,7 @@ export default class AppCanvas {
     this.Renderer = new WebGLRenderer({
       canvas: canvas,
       alpha: true,
+      antialias: true
     });
     this.Renderer.setClearColor(0x000000);
     this.Renderer.autoClear = false;

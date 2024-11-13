@@ -22,18 +22,19 @@ import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUnifo
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 import { FXAAEffect } from "postprocessing";
 
-import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
 import { MeshLine, MeshLineMaterial } from "three.meshline";
 
 import LineGenerator from "./objects/LineGenerator.js";
+import AnimatedText3D from "./objects/AnimatedText3D.js";
 import Stars from "./objects/Stars.js";
 
 import getRandomFloat from "./utils/getRandomFloat.js";
 import getRandomItem from "./utils/getRandomItem.js";
 import AppCanvas from "./graphics/AppCanvas.js";
 import PlaneTextButton3D from "./graphics/PlaneTextButton3D.js";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
 var gltfLoader, spaceStationScene, cyberHomeScene, loadingManager;
 /**
@@ -52,6 +53,10 @@ var mainSceneRP, btnsSceneRP;
  * @type {THREE.EffectComposer}
  */
 var btnComposer, mainComposer;
+/**
+ * @type {THREE.FXAAShader}
+ */
+var mainComposerFxaa;
 /**
  * @type {THREE.Mesh}
  */
@@ -96,19 +101,15 @@ var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
 var deltaTime = 0.0;
 
 var botHead;
-var botHeadMixer;
-var botHeadEyeBlinkAction;
 
 var botHeadCursor;
-var botHeadCursorEyeLeft;
-var botHeadCursorEyeRight;
+var botHeadCursorEye;
 
-var botHeadCursorMeshLeft;
-var botHeadCursorMeshRight;
+var botHeadMixer;
 
-var botHeadCursorMeshLineLeft;
-var botHeadCursorMeshLineRight;
+var botHeadCursorMesh;
 
+var botHeadCursorMeshLine;
 var botHeadCursorMeshLineMaterial;
 
 /**
@@ -140,6 +141,12 @@ const Z_MIN = -1;
 const Z_INCREMENT = 0.08;
 const ANGLE_INCREMENT = 0.025;
 const RADIUS_INCREMENT = 0.02;
+
+/**
+ * @type {THREE.FontLoader}
+ */
+let gFontLoader = null;
+let gFont = null;
 
 const COLORS = ["#ee3227", "#134a7c", "#ffffff"].map(
   (col) => new THREE.Color(col)
@@ -229,36 +236,27 @@ function initMeshes() {
       mainScene.add(gltf.scene);
     });
 
-  gltfLoader
-    .loadAsync("assets/models/gltf/SM_Bottington_V.glb")
-    .then(function (gltf) {
-      const rootBot = gltf.scene.getObjectByName("RootBot");
-      rootBot.scale.set(0.5, 0.5, 0.5);
+  gltfLoader.loadAsync("assets/models/gltf/VBot.glb").then(function (gltf) {
+    const rootBot = gltf.scene.getObjectByName("Bot");
+    rootBot.scale.set(2, 2, 2);
 
-      botHead = rootBot.getObjectByName("SM_Bottington002");
+    rootBot.rotation.y = Math.PI * 0.5;
 
-      botHeadMixer = new THREE.AnimationMixer(gltf.scene);
-      botHeadEyeBlinkAction = botHeadMixer.clipAction(gltf.animations[0]);
-      botHeadEyeBlinkAction.setLoop(THREE.LoopOnce);
-      botHeadEyeBlinkAction.clampWhenFinished = true;
-      botHeadEyeBlinkAction.timeScale = 10;
+    botHead = rootBot.getObjectByName("Head");
 
-      blinkEyesLoop(botHeadEyeBlinkAction);
+    gltf.scene.position.z = 4.5;
+    mainScene.add(gltf.scene);
 
-      gltf.scene.position.z = 4.5;
-      mainScene.add(gltf.scene);
+    // Bot Head that follows cursor
+    var copyScene = deepClone(gltf.scene);
+    copyScene.position.z = -4;
 
-      // Bot Head that follows cursor
-      var copyScene = deepClone(gltf.scene);
-      copyScene.position.z = -4;
+    const rootBotCursor = copyScene.getObjectByName("Bot");
+    botHeadCursor = rootBotCursor.getObjectByName("Head");
+    botHeadCursorEye = botHeadCursor.getObjectByName("Eye");
 
-      const rootBotCursor = copyScene.getObjectByName("RootBot");
-      botHeadCursor = rootBotCursor.getObjectByName("SM_Bottington002");
-      botHeadCursorEyeLeft = botHeadCursor.getObjectByName("EyeLeft");
-      botHeadCursorEyeRight = botHeadCursor.getObjectByName("EyeRight");
-
-      mainScene.add(copyScene);
-    });
+    mainScene.add(copyScene);
+  });
 }
 
 const gFirefliesFlockRadius = 50.0;
@@ -475,11 +473,16 @@ function initBtnComposer() {
 function initMainComposer() {
   mainComposer = new EffectComposer(gAppCanvas.Renderer);
   mainSceneRP = new RenderPass(mainScene, mainCamera);
-  const fxaaPass = new ShaderPass(FXAAShader);
+  mainComposerFxaa = new ShaderPass(FXAAShader);
   const op = new OutputPass();
 
+  mainComposerFxaa.material.uniforms["resolution"].value.set(
+    window.innerWidth,
+    window.innerHeight
+  );
+
   mainComposer.addPass(mainSceneRP);
-  mainComposer.addPass(fxaaPass);
+  mainComposer.addPass(mainComposerFxaa);
   mainComposer.addPass(op);
 
   mainComposer.renderToScreen = true;
@@ -554,6 +557,13 @@ function onResize() {
 
   btnComposer.setSize(window.innerWidth, window.innerHeight);
   btnComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  if (mainComposerFxaa) {
+    mainComposerFxaa.material.uniforms["resolution"].value.set(
+      window.innerWidth,
+      window.innerHeight
+    );
+  }
 }
 
 /**
@@ -578,23 +588,16 @@ function GenerateMeshLinePoints(startPoint, endPoint) {
   return points;
 }
 function UpdateBotHeadCursorEyesMeshLine() {
-  if (botHeadCursorMeshLeft) {
-    botHeadCursorMeshLeft.visible = false;
+  if (botHeadCursorMesh) {
+    botHeadCursorMesh.visible = false;
   }
-  if (botHeadCursorMeshRight) {
-    botHeadCursorMeshRight.visible = false;
-  }
-  if (
-    (!bIsHovering) ||
-    !botHeadCursorEyeLeft ||
-    !botHeadCursorEyeRight
-  ) {
+  if (!bIsHovering || !botHeadCursorEye) {
     return;
   }
 
   const startPoint = new THREE.Vector3();
   const endPoint = new THREE.Vector3();
-  botHeadCursorEyeLeft.getWorldPosition(startPoint);
+  botHeadCursorEye.getWorldPosition(startPoint);
 
   const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   raycaster.ray.intersectPlane(planeZ, endPoint);
@@ -602,25 +605,16 @@ function UpdateBotHeadCursorEyesMeshLine() {
   endPoint.x += 0.05;
 
   // Create MeshLine geometries
-  if (!botHeadCursorMeshLineLeft) {
-    botHeadCursorMeshLineLeft = new MeshLine();
-  }
-  if (!botHeadCursorMeshLineRight) {
-    botHeadCursorMeshLineRight = new MeshLine();
+  if (!botHeadCursorMeshLine) {
+    botHeadCursorMeshLine = new MeshLine();
   }
 
   // Create a mesh with MeshLine geometry and material
   const leftPoints = GenerateMeshLinePoints(startPoint, endPoint);
 
-  botHeadCursorEyeRight.getWorldPosition(startPoint);
-  const rightPoints = GenerateMeshLinePoints(startPoint, endPoint);
-
   // Convert points array to a flat array
   const linePointsLeft = leftPoints.flatMap((p) => [p.x, p.y, p.z]);
-  botHeadCursorMeshLineLeft.setPoints(linePointsLeft);
-
-  const linePointsRight = rightPoints.flatMap((p) => [p.x, p.y, p.z]);
-  botHeadCursorMeshLineRight.setPoints(linePointsRight);
+  botHeadCursorMeshLine.setPoints(linePointsLeft);
 
   // Create MeshLine material with desired width
   botHeadCursorMeshLineMaterial = new MeshLineMaterial({
@@ -630,28 +624,18 @@ function UpdateBotHeadCursorEyesMeshLine() {
     sizeAttenuation: true, // Makes the line width perspective-correct
   });
 
-  if (!botHeadCursorMeshLeft) {
-    botHeadCursorMeshLeft = new THREE.Mesh(
-      botHeadCursorMeshLineLeft,
+  if (!botHeadCursorMesh) {
+    botHeadCursorMesh = new THREE.Mesh(
+      botHeadCursorMeshLine,
       botHeadCursorMeshLineMaterial
     );
-    mainScene.add(botHeadCursorMeshLeft);
+    mainScene.add(botHeadCursorMesh);
   } else {
-    botHeadCursorMeshLeft.visible = true;
+    botHeadCursorMesh.visible = true;
   }
 
-  if (!botHeadCursorMeshRight) {
-    botHeadCursorMeshRight = new THREE.Mesh(
-      botHeadCursorMeshLineRight,
-      botHeadCursorMeshLineMaterial
-    );
-    mainScene.add(botHeadCursorMeshRight);
-  } else {
-    botHeadCursorMeshRight.visible = true;
-  }
-
-  botHeadCursorMeshLeft.material = botHeadCursorMeshLineMaterial;
-  botHeadCursorMeshRight.material = botHeadCursorMeshLineMaterial;
+  botHeadCursorMesh.material = botHeadCursorMeshLineMaterial;
+  botHeadCursorEye.material.emissive = botHeadCursorMeshLineMaterial.color;
 }
 
 function OnHoverStart(btn) {
@@ -670,8 +654,27 @@ function OnMouseDown() {
 
   if (cIntersectedObject != null && cIntersectedObject.OnMouseDown) {
     camControls.rotateSpeed = 0.0;
-
     cIntersectedObject.OnMouseDown(cIntersectedObject);
+
+    const camVec = new THREE.Vector3();
+    mainCamera.getWorldDirection(camVec);
+
+    gAnimText.position.copy(mainCamera.position);
+    gAnimText.position.addScaledVector(camVec, 2);
+
+    camVec.set(0, 1, 0);
+    camVec.applyQuaternion(mainCamera.quaternion);
+    gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
+
+    camVec.set(1, 0, 0);
+    camVec.applyQuaternion(mainCamera.quaternion);
+    gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
+
+    gAnimText.lookAt(mainCamera.position);
+    setTimeout(() => {
+      gAnimText.hide();
+    }, 350);
+    gAnimText.show();
   }
 
   // camPrevLocation.copy(mainCamera.position);
@@ -711,12 +714,12 @@ function OnMouseMove() {
         OnHoverStart(cIntersectedObject);
         bIsHovering = true;
       }
-    } else if (cIntersectedObject != null) {
-      // Hover End
-      OnHoverEnd(cIntersectedObject);
-      cIntersectedObject = null;
-      bIsHovering = false;
     }
+  } else if (cIntersectedObject != null) {
+    // Hover End
+    OnHoverEnd(cIntersectedObject);
+    cIntersectedObject = null;
+    bIsHovering = false;
   }
 }
 
@@ -732,7 +735,7 @@ function OnTouchMove() {
     bIsHovering = true;
   } else {
     cIntersectedObject = null;
-    bIsHovering =  false;
+    bIsHovering = false;
   }
 }
 
@@ -855,7 +858,7 @@ function initParticles() {
   // Particle material
   const material = new THREE.PointsMaterial({
     color: 0xffffff,
-    size: 0.025,
+    size: 0.125,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     vertexColors: true,
@@ -887,9 +890,28 @@ function updateParticles() {
   particleSystem.geometry.attributes.color.needsUpdate = true;
 }
 
+let gAnimText = null;
+
 function update() {
   if (botHeadMixer) {
     botHeadMixer.update(deltaTime);
+  }
+
+  if (!gAnimText && gFont) {
+    gAnimText = new AnimatedText3D("POW!", gFont, {
+      color: "0xFFFFFF",
+      size: 0.125 * 0.5,
+      wireframe: true,
+      opacity: 1,
+      duration: 0.125 * 0.5,
+    });
+
+    gAnimText.rotation.y = Math.PI * 0.5;
+
+    gAnimText.position.z = -2.5;
+    gAnimText.position.y = 2;
+
+    mainScene.add(gAnimText);
   }
 
   UpdateBotHeadCursorEyesMeshLine();
@@ -901,9 +923,12 @@ function update() {
   const currentQuat = new THREE.Quaternion();
 
   if (botHead) {
+    let wp = new THREE.Vector3();
+    botHead.getWorldPosition(wp);
+
     // Clone the camera position and zero out the Y-axis for restricted rotation
     const targetPosition = mainCamera.position.clone();
-    targetPosition.y = botHead.position.y;
+    targetPosition.y = wp.y;
 
     currentQuat.copy(botHead.quaternion);
     botHead.lookAt(targetPosition);
@@ -918,12 +943,15 @@ function update() {
     // Define a plane or objects where you want to project the ray
     const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const targetPosition = new THREE.Vector3();
+    let wp = new THREE.Vector3();
 
     // Intersect the ray with the plane to get the 3D world position
     raycaster.ray.intersectPlane(planeZ, targetPosition);
 
+    botHeadCursor.getWorldPosition(wp);
+
     // Clone the camera position and zero out the Y-axis for restricted rotation
-    targetPosition.y = botHeadCursor.position.y;
+    targetPosition.y = wp.y;
 
     currentQuat.copy(botHeadCursor.quaternion);
     botHeadCursor.lookAt(targetPosition);
@@ -990,6 +1018,8 @@ function update() {
   // Update controls
   if (camControls.enabled) {
     camControls.update();
+    mainCamera.position.y +=
+      Math.sin(clock.getElapsedTime()) * deltaTime * 0.125;
   }
 
   if (particleSystem) {
@@ -1059,6 +1089,13 @@ class MainEntry {
     await initParticles();
 
     document.body.appendChild(stats.domElement);
+
+    gFontLoader = new FontLoader(loadingManager);
+    gFontLoader
+      .loadAsync("public/assets/fonts/GlitchGoblin_Regular.json")
+      .then(function (font) {
+        gFont = font;
+      });
 
     if (gAppCanvas.Renderer) {
       gAppCanvas.Renderer.domElement.addEventListener(

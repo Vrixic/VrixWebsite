@@ -36,6 +36,8 @@ import AppCanvas from "./graphics/AppCanvas.js";
 import PlaneTextButton3D from "./graphics/PlaneTextButton3D.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
+import gFontFile from "./utils/fontFile.js";
+
 var gltfLoader, spaceStationScene, cyberHomeScene, loadingManager;
 /**
  * @type {THREE.AnimationMixer}
@@ -1093,11 +1095,8 @@ class MainEntry {
     document.body.appendChild(stats.domElement);
 
     gFontLoader = new FontLoader(loadingManager);
-    gFontLoader
-      .loadAsync("assets/webfonts/GlitchGoblin_Regular.json")
-      .then(function (font) {
-        gFont = font;
-      });
+    gFont =  gFontLoader
+      .parse(gFontFile);
 
     if (gAppCanvas.Renderer) {
       gAppCanvas.Renderer.domElement.addEventListener(

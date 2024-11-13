@@ -656,25 +656,27 @@ function OnMouseDown() {
     camControls.rotateSpeed = 0.0;
     cIntersectedObject.OnMouseDown(cIntersectedObject);
 
-    const camVec = new THREE.Vector3();
-    mainCamera.getWorldDirection(camVec);
+    if (gAnimText) {
+      const camVec = new THREE.Vector3();
+      mainCamera.getWorldDirection(camVec);
 
-    gAnimText.position.copy(mainCamera.position);
-    gAnimText.position.addScaledVector(camVec, 2);
+      gAnimText.position.copy(mainCamera.position);
+      gAnimText.position.addScaledVector(camVec, 2);
 
-    camVec.set(0, 1, 0);
-    camVec.applyQuaternion(mainCamera.quaternion);
-    gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
+      camVec.set(0, 1, 0);
+      camVec.applyQuaternion(mainCamera.quaternion);
+      gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
 
-    camVec.set(1, 0, 0);
-    camVec.applyQuaternion(mainCamera.quaternion);
-    gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
+      camVec.set(1, 0, 0);
+      camVec.applyQuaternion(mainCamera.quaternion);
+      gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
 
-    gAnimText.lookAt(mainCamera.position);
-    setTimeout(() => {
-      gAnimText.hide();
-    }, 350);
-    gAnimText.show();
+      gAnimText.lookAt(mainCamera.position);
+      setTimeout(() => {
+        gAnimText.hide();
+      }, 350);
+      gAnimText.show();
+    }
   }
 
   // camPrevLocation.copy(mainCamera.position);
@@ -1092,7 +1094,7 @@ class MainEntry {
 
     gFontLoader = new FontLoader(loadingManager);
     gFontLoader
-      .loadAsync("public/assets/fonts/GlitchGoblin_Regular.json")
+      .loadAsync("assets/webfonts/GlitchGoblin_Regular.json")
       .then(function (font) {
         gFont = font;
       });

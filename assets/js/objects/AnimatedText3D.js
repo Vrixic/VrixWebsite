@@ -9,7 +9,7 @@ export default class AnimatedText3D extends Object3D {
     {
       size = 0.8,
       letterSpacing = 0.03,
-      color = "#000000",
+      clr = 0xffffff,
       duration = 0.6,
       opacity = 1,
       wireframe = false,
@@ -30,7 +30,7 @@ export default class AnimatedText3D extends Object3D {
         const geom = new ShapeGeometry(font.generateShapes(letter, size, 1));
         geom.computeBoundingBox();
         const mat = new MeshBasicMaterial({
-          color,
+          color: clr,
           opacity: 0,
           transparent: true,
           wireframe,

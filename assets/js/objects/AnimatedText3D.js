@@ -1,6 +1,5 @@
 import { Object3D, ShapeGeometry, MeshBasicMaterial, Mesh } from "three";
-import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
-import { TimelineLite, Back } from "gsap";
+import { TimelineLite, Back, Linear } from "gsap";
 
 export default class AnimatedText3D extends Object3D {
   constructor(
@@ -8,8 +7,8 @@ export default class AnimatedText3D extends Object3D {
     font,
     {
       size = 0.8,
-      letterSpacing = 0.03,
-      clr = 0xffffff,
+      letterSpacing = 0.0,
+      clr = "rgba(1,1,1,1)",
       duration = 0.6,
       opacity = 1,
       wireframe = false,
@@ -19,6 +18,10 @@ export default class AnimatedText3D extends Object3D {
 
     this.basePosition = 0;
     this.size = size;
+    this.letterSpacing = letterSpacing;
+    this.duration = duration;
+    this.opacity = opacity;
+    this.color = clr;
 
     this.basePositions = [];
 
@@ -48,42 +51,50 @@ export default class AnimatedText3D extends Object3D {
     // Timeline
     this.tm = new TimelineLite({ paused: true });
     this.tm.set({}, {}, `+=${duration * 1.1}`);
-    this.children.forEach((letter, idx) => {
-      const data = {
-        opacity: 0,
-        position: -0.5,
-        index: idx,
-        color: "rgba(0,0,0,1)",
-        colorRate: Math.random(0.15, 0.25),
-      };
-      this.tm.to(
-        data,
-        duration,
-        {
-          opacity,
-          position: 0 + this.basePositions[data.index] - 0.03 * data.index,
-          ease: Back.easeOut.config(3),
-          onUpdate: () => {
-            letter.material.opacity = data.opacity;
-            letter.position.x =
-              data.position + data.index * letterSpacing * -0.0125;
-
-            letter.material.color.b = Math.cos(duration * data.index);
-            letter.material.color.r = Math.sin(
-              duration * data.index * Math.random(4, 8)
-            );
-            letter.material.color.g = Math.sin(
-              duration * data.index * Math.random(2, 4)
-            );
-          },
-        },
-        `-=${duration - 0.03}`
-      );
-    });
+    this.setupTimeLine();
 
     // Bind
     this.show = this.show.bind(this);
     this.hide = this.hide.bind(this);
+  }
+
+  isUsable() {
+    return this.tm.isActive();
+  }
+
+  setupTimeLine() {
+    this.children.forEach((letter, idx) => {
+      const data = {
+        opacity: 0,
+        position: 0,
+        index: idx,
+        color: this.color,
+        colorRate: Math.random(0.15, 0.25),
+        letterSpace: this.letterSpacing,
+      };
+      this.tm.to(
+        data,
+        this.duration,
+        {
+          opacity: this.opacity,
+          position: 0,
+          ease: Back.easeIn.config(3),
+          onUpdate: () => {
+            this.animationUpdate(letter, data, this.duration);
+          },
+        },
+        `-=${this.duration - 0.03}`
+      );
+    });
+  }
+
+  animationUpdate(letter, data) {
+    letter.material.opacity = data.opacity;
+    letter.position.x = data.position + data.index * data.letterSpace * -0.0125;
+
+    letter.material.color.r = Math.cos(this.tm.time() * 90);
+    letter.material.color.b = Math.cos(this.tm.time() * 180);
+    letter.material.color.g = Math.cos(this.tm.time() * 360);
   }
 
   show() {

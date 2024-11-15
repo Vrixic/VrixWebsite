@@ -651,6 +651,96 @@ function OnHoverEnd(btn) {
   }
 }
 
+let gBotShootAnimTexts = [];
+const gNumBotPowAnimTexts = 5;
+
+function createPowAnimText() {
+  class AnimatedText3D_ColorByTime extends AnimatedText3D {
+    animationUpdate(letter, data) {
+      letter.material.opacity = data.opacity;
+
+      //letter.position.z = this.tm.progress();
+
+      letter.scale.x = this.tm.progress();
+      letter.scale.y = this.tm.progress();
+      letter.scale.z = this.tm.progress();
+
+      const r = Math.sin(this.tm.time() * 90 * clock.getElapsedTime()) + 0.5;
+      // const b = Math.sin(this.tm.time() * 180 * clock.getElapsedTime()) + 0.5;
+      const g = Math.sin(this.tm.time() * 260 * clock.getElapsedTime()) + 0.5;
+
+      letter.material.color.r = r > 1 ? 1 : r;
+      letter.material.color.b = 1;
+      letter.material.color.g = g > 1 ? 1 : g;
+    }
+  }
+  const animText = new AnimatedText3D_ColorByTime("POW!", gFont, {
+    color: "rgba(1,0,0,1)",
+    size: 0.125 * 0.5,
+    wireframe: true,
+    opacity: 1,
+    duration: 0.125 * 0.5,
+  });
+
+  animText.rotation.y = Math.PI * 0.5;
+
+  animText.position.z = -2.5;
+  animText.position.y = 2;
+
+  return animText;
+}
+
+function addPowAnimTexts() {
+  for (var i = 0; i < gNumBotPowAnimTexts; i++) {
+    const animText = createPowAnimText();
+    mainScene.add(animText);
+    gBotShootAnimTexts.push(animText);
+  }
+}
+
+function playPowAnimText() {
+  if (gBotShootAnimTexts.length) {
+    let animText = null;
+    for (var i = 0; i < gBotShootAnimTexts.length; i++) {
+      console.log(gBotShootAnimTexts[i].tm.progress());
+      if (gBotShootAnimTexts[i].tm.progress() == 0.0) {
+        animText = gBotShootAnimTexts[i];
+        break;
+      }
+    }
+
+    if (animText) {
+      const camVec = new THREE.Vector3();
+      mainCamera.getWorldDirection(camVec);
+
+      animText.position.copy(mainCamera.position);
+      animText.position.addScaledVector(camVec, 2);
+
+      // Calculate random positions within the viewport
+      const randomX = (Math.random() - 0.5) * 2;
+      const randomY = (Math.random() - 0.5) * 2;
+
+      // Set the position of the plane in front of the camera
+      const scaleX = randomX * mainCamera.aspect;
+      const scaleY = randomY * mainCamera.aspect;
+
+      camVec.set(0, 1, 0);
+      camVec.applyQuaternion(mainCamera.quaternion);
+      animText.position.addScaledVector(camVec, scaleX);
+
+      camVec.set(1, 0, 0);
+      camVec.applyQuaternion(mainCamera.quaternion);
+      animText.position.addScaledVector(camVec, scaleY);
+
+      animText.lookAt(mainCamera.position);
+      setTimeout(() => {
+        animText.hide();
+      }, 750);
+      animText.show();
+    }
+  }
+}
+
 function OnMouseDown() {
   bMouseDown = true;
 
@@ -658,27 +748,7 @@ function OnMouseDown() {
     camControls.rotateSpeed = 0.0;
     cIntersectedObject.OnMouseDown(cIntersectedObject);
 
-    if (gAnimText) {
-      const camVec = new THREE.Vector3();
-      mainCamera.getWorldDirection(camVec);
-
-      gAnimText.position.copy(mainCamera.position);
-      gAnimText.position.addScaledVector(camVec, 2);
-
-      camVec.set(0, 1, 0);
-      camVec.applyQuaternion(mainCamera.quaternion);
-      gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
-
-      camVec.set(1, 0, 0);
-      camVec.applyQuaternion(mainCamera.quaternion);
-      gAnimText.position.addScaledVector(camVec, Math.random(-0.75, 0.75));
-
-      gAnimText.lookAt(mainCamera.position);
-      setTimeout(() => {
-        gAnimText.hide();
-      }, 350);
-      gAnimText.show();
-    }
+    playPowAnimText();
   }
 
   // camPrevLocation.copy(mainCamera.position);
@@ -894,28 +964,9 @@ function updateParticles() {
   particleSystem.geometry.attributes.color.needsUpdate = true;
 }
 
-let gAnimText = null;
-
 function update() {
   if (botHeadMixer) {
     botHeadMixer.update(deltaTime);
-  }
-
-  if (!gAnimText && gFont) {
-    gAnimText = new AnimatedText3D("POW!", gFont, {
-      color: "0xFFFFFF",
-      size: 0.125 * 0.5,
-      wireframe: true,
-      opacity: 1,
-      duration: 0.125 * 0.5,
-    });
-
-    gAnimText.rotation.y = Math.PI * 0.5;
-
-    gAnimText.position.z = -2.5;
-    gAnimText.position.y = 2;
-
-    mainScene.add(gAnimText);
   }
 
   UpdateBotHeadCursorEyesMeshLine();
@@ -1095,8 +1146,9 @@ class MainEntry {
     document.body.appendChild(stats.domElement);
 
     gFontLoader = new FontLoader(loadingManager);
-    gFont =  gFontLoader
-      .parse(gFontFile);
+    gFont = gFontLoader.parse(gFontFile);
+
+    addPowAnimTexts();
 
     if (gAppCanvas.Renderer) {
       gAppCanvas.Renderer.domElement.addEventListener(

@@ -36,6 +36,8 @@ import AppCanvas from "./graphics/AppCanvas.js";
 import PlaneTextButton3D from "./graphics/PlaneTextButton3D.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
+import { TimelineLite, Back, Linear, Expo } from "gsap";
+
 import gFontFile from "./utils/fontFile.js";
 
 var gltfLoader, spaceStationScene, cyberHomeScene, loadingManager;
@@ -76,6 +78,11 @@ var clock;
  */
 var mainCamera, loadingCamera;
 
+/**
+ * @type {TimelineLite}
+ */
+var gCamToAtmScreenTimeLine = null;
+
 var canvas = document.querySelector("canvas.webgl");
 /**
  * @type {AppCanvas}
@@ -90,15 +97,14 @@ const stats = new Stats();
 
 const sceneScale = 1;
 
-var bGoingToComputer = false,
+var bLockCamControl = false,
   bReturnToScene = false,
   bViewingComputer = false,
   camPrevLocation = new THREE.Vector3(),
   camPrevRotation = new THREE.Quaternion();
-var camProgress = 0;
 
-var cameraComputerLocation = new THREE.Vector3(1.5, 10.5, 1.1);
-var cameraComputerLookLocation = new THREE.Vector3(0, 10.5, 1.1);
+var cameraComputerLocation = new THREE.Vector3(.65, 3.453, .35);
+var cameraComputerLookLocation = new THREE.Vector3(0, 3.453, .35);
 
 var deltaTime = 0.0;
 
@@ -434,6 +440,8 @@ function OnExitButtonClick() {
     if (elementWithClass) {
       elementWithClass.style.display = "none";
     }
+
+    gCamToAtmScreenTimeLine.reverse();
   }
 }
 
@@ -702,7 +710,6 @@ function playPowAnimText() {
   if (gBotShootAnimTexts.length) {
     let animText = null;
     for (var i = 0; i < gBotShootAnimTexts.length; i++) {
-      console.log(gBotShootAnimTexts[i].tm.progress());
       if (gBotShootAnimTexts[i].tm.progress() == 0.0) {
         animText = gBotShootAnimTexts[i];
         break;
@@ -740,6 +747,11 @@ function playPowAnimText() {
     }
   }
 }
+const gdata = {
+  positionX: 0,
+  positionY: 0,
+  positionZ: 0,
+};
 
 function OnMouseDown() {
   bMouseDown = true;
@@ -747,20 +759,27 @@ function OnMouseDown() {
   if (cIntersectedObject != null && cIntersectedObject.OnMouseDown) {
     camControls.rotateSpeed = 0.0;
     cIntersectedObject.OnMouseDown(cIntersectedObject);
-
-    playPowAnimText();
   }
-
-  // camPrevLocation.copy(mainCamera.position);
-  // camPrevRotation.copy(mainCamera.quaternion);
-  // bGoingToComputer = true;
-  // camProgress = 0;
 }
 function OnMouseUp() {
   bMouseDown = false;
 
   if (cIntersectedObject != null && cIntersectedObject.OnMouseUp) {
     cIntersectedObject.OnMouseUp(cIntersectedObject);
+
+    playPowAnimText();
+
+    if (!bLockCamControl && gCamToAtmScreenTimeLine.progress() == 0) {
+      gdata.positionX = mainCamera.position.x;
+      gdata.positionY = mainCamera.position.y;
+      gdata.positionZ = mainCamera.position.z;
+
+      camPrevLocation.copy(mainCamera.position);
+      camPrevRotation.copy(mainCamera.quaternion);
+
+      gCamToAtmScreenTimeLine.play();
+      bLockCamControl = true;
+    }
   }
 
   camControls.rotateSpeed = 0.25;
@@ -1017,58 +1036,8 @@ function update() {
     botHeadCursor.quaternion.slerp(targetQuaternion, lagFactor);
   }
 
-  if (bGoingToComputer) {
-    // Define where to position the mainCamera to focus nicely on the target
-    mainCamera.position.lerp(cameraComputerLocation, 0.05); // Smoothly interpolate the position
-
-    // Create a temporary mainCamera to calculate target quaternion
-    const tempCamera = mainCamera.clone();
-    tempCamera.lookAt(cameraComputerLookLocation);
-
-    // Smoothly interpolate the mainCamera rotation
-    mainCamera.quaternion.slerp(tempCamera.quaternion, 0.05);
-
-    const l = Math.abs(
-      new THREE.Vector3()
-        .subVectors(cameraComputerLocation, mainCamera.position)
-        .length()
-    );
-    if (l < 0.01) {
-      bGoingToComputer = false;
-      bViewingComputer = true;
-
-      camControls.target.copy(cameraComputerLookLocation);
-      camControls.saveState();
-      camControls.reset();
-
-      const elementWithClass = document.querySelector("div#wrapper");
-      if (elementWithClass) {
-        elementWithClass.style.display = "";
-      }
-    }
-  }
-
-  if (bReturnToScene) {
-    mainCamera.position.lerp(camPrevLocation, 0.05); // Smoothly interpolate the position
-    mainCamera.quaternion.slerp(camPrevRotation, 0.05);
-
-    const l = Math.abs(
-      new THREE.Vector3()
-        .subVectors(camPrevLocation, mainCamera.position)
-        .length()
-    );
-    if (l < 0.01) {
-      bReturnToScene = false;
-      bViewingComputer = false;
-
-      camControls.target.set(0, 0, 0);
-      camControls.saveState();
-      camControls.reset();
-    }
-  }
-
   camControls.enabled =
-    !bViewingComputer && !bGoingToComputer && !bReturnToScene;
+    !bViewingComputer && !bLockCamControl && !bReturnToScene;
 
   // Update controls
   if (camControls.enabled) {
@@ -1147,6 +1116,62 @@ class MainEntry {
 
     gFontLoader = new FontLoader(loadingManager);
     gFont = gFontLoader.parse(gFontFile);
+
+    const duration = 1.5;
+    gCamToAtmScreenTimeLine = new TimelineLite({ paused: true });
+    gCamToAtmScreenTimeLine.set({}, {}, `+=${duration * 1.1}`);
+    gCamToAtmScreenTimeLine.to(
+      gdata,
+      duration,
+      {
+        positionX: cameraComputerLocation.x,
+        positionY: cameraComputerLocation.y,
+        positionZ: cameraComputerLocation.z,
+        ease: Back.easeIn.config(3),
+        onUpdate: () => {
+          if (!bReturnToScene) {
+            const tempCamera = mainCamera.clone();
+            tempCamera.lookAt(cameraComputerLookLocation);
+
+            // Smoothly interpolate the mainCamera rotation
+            mainCamera.quaternion.slerp(
+              tempCamera.quaternion,
+              gCamToAtmScreenTimeLine.progress()
+            );
+
+            const np = new THREE.Vector3(gdata.positionX, gdata.positionY, gdata.positionZ);
+            mainCamera.position.lerp(np, gCamToAtmScreenTimeLine.progress());
+          } else {
+            const t = Math.abs(gCamToAtmScreenTimeLine.progress() - 1);
+            mainCamera.quaternion.slerp(camPrevRotation, t);
+
+            mainCamera.position.lerp(camPrevLocation, t);
+          }
+        },
+        onComplete: () => {
+          bLockCamControl = false;
+          bViewingComputer = true;
+
+          camControls.target.copy(cameraComputerLookLocation);
+          camControls.saveState();
+          camControls.reset();
+
+          const elementWithClass = document.querySelector("div#wrapper");
+          if (elementWithClass) {
+            elementWithClass.style.display = "";
+          }
+        },
+        onReverseComplete: () => {
+          camControls.target.set(0, 0, 0);
+          camControls.saveState();
+          camControls.reset();
+
+          bReturnToScene = false;
+          bViewingComputer = false;
+        },
+      },
+      `-=${this.duration - 0.03}`
+    );
 
     addPowAnimTexts();
 

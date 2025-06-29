@@ -1908,31 +1908,6 @@ hr {
   }
 }
 
-/* Box */
-
-.box {
-  border-radius: 8px;
-  border: solid;
-  margin-bottom: 2em;
-  padding: 1.5em;
-}
-
-.box > :last-child,
-.box > :last-child > :last-child,
-.box > :last-child > :last-child > :last-child {
-  margin-bottom: 0;
-}
-
-.box.alt {
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-}
-
-.box {
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
 /* Button */
 
 input[type="submit"],
@@ -3471,10 +3446,6 @@ body.is-preload #header.alt .logo {
 
 #main hr {
   border-bottom-color: #dddddd;
-}
-
-#main .box {
-  border-color: #dddddd;
 }
 
 #main input[type="submit"],

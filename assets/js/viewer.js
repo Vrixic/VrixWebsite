@@ -90,18 +90,24 @@ function initMeshes () {
 function OnAssetLoadCompleted () {
   setTimeout(() => {
     bAssetsLoadCompleted = true
-    loadingScreen.style.opacity = '0'
-    setTimeout(() => { document.body.removeChild(loadingScreen); });
+    animate()
 
     const card = document.createElement('div')
-    card.innerHTML = getCardHtml('Meta', 'Performance Technical Artist V', 'MAR 2025', '')
-    card.style.transition = 'opacity 0.5s ease'
+    card.innerHTML = getCardHtml(
+      'Meta',
+      'Performance Technical Artist V',
+      'MAR 2025',
+      ''
+    )
     // Append to the DOM
     document.body.appendChild(card)
 
+    loadingScreen.style.opacity = '0'
+
     setTimeout(() => {
       loadingScreen.style.display = 'none'
-      animate()
+
+      document.body.removeChild(loadingScreen)
     }, 500)
   }, 1500)
 }
@@ -290,8 +296,7 @@ class MainEntry {
   }
 }
 
-function getLoadingScreenHtml()
-{
+function getLoadingScreenHtml () {
   return `<!-- From Uiverse.io by BlackisPlay --> 
 <div id="ghost">
   <div id="red">
@@ -331,11 +336,10 @@ function getLoadingScreenHtml()
   </div>
   <div id="shadow"></div>
 </div>
-`;
+`
 }
 
-function getCardHtml(company, role, start, end)
-{
+function getCardHtml (company, role, start, end) {
   return `<div class="wrapper">
       <div class="container">
         <div class="box">

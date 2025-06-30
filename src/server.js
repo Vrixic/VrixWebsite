@@ -1,8 +1,8 @@
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
-// const http = require('http');
-// const fs = require('fs');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
@@ -28,3 +28,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+

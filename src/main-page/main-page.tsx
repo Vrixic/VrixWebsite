@@ -88,6 +88,21 @@ function Deck({
             style={{
               transform: interpolate([rot, scale], trans),
               backgroundImage: `url(${cards[i]})`,
+
+              backgroundColor: "white",
+              backgroundSize: "auto 85%",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              width: "60%", // or use px if preferred
+              maxWidth: "150px",
+              maxHeight: "285px",
+              aspectRatio: "45 / 85", // keeps consistent height/width ratio
+              willChange: "transform",
+              borderRadius: "10px",
+              boxShadow:
+                "0 12.5px 100px -10px rgba(50, 50, 73, 0.4), 0 10px 10px -10px rgba(50, 50, 73, 0.3)",
+
+              border: "2px solid green", // 🔍 add this for visibility
             }}
           />
         </animated.div>

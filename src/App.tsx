@@ -1,35 +1,25 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { proxy } from "valtio";
+import "./App.css";
+import WorkSelectionItemsPage from "./work-selection-page/work-selection-page";
+import MainPageCardsDiv from "./main-page/main-page";
+
+type StateType = {
+  clicked: number | null;
+  urls: string[];
+};
+
+const state = proxy<StateType>({
+  clicked: null,
+  urls: [1, 2, 3, 4].map((u) => `/${u}.jpg`),
+});
 
 function App() {
-  const [count, setCount] = useState(0)
-
+  const handleSwipeRight = (cardIndex: number, cardUrl: string) => {
+    console.log(`Liked card ${cardIndex} with url ${cardUrl}!`)
+  }
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+     <MainPageCardsDiv onSwipeRight={handleSwipeRight} />
+  );
 }
 
-export default App
+export default App;

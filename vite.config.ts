@@ -8,5 +8,5 @@ export default defineConfig({root: './',
     outDir: 'dist',
     assetsDir: 'assets'
   },
-  plugins: [react(),tailwindcss()],
+  plugins: [react(),tailwindcss()]
 })

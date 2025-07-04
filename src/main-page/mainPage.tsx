@@ -1,136 +1,361 @@
-import { useState } from "react";
-import { useSprings, animated, to as interpolate } from "@react-spring/web";
-import { useNavigate } from "react-router";
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
+import { generate } from "random-words";
 
-import styles from "./main-page.module.css";
-import { useDrag } from "@use-gesture/react";
+const createTextTexture = (text: string) => {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
 
-const cards = [
-  "https://upload.wikimedia.org/wikipedia/commons/f/f5/RWS_Tarot_08_Strength.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/5/53/RWS_Tarot_16_Tower.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/9/9b/RWS_Tarot_07_Chariot.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/d/db/RWS_Tarot_06_Lovers.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/RWS_Tarot_02_High_Priestess.jpg/690px-RWS_Tarot_02_High_Priestess.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg",
-];
+  // Set canvas size
+  canvas.width = 512;
+  canvas.height = 128;
 
-const vpAspectRatio = innerWidth / innerHeight; // Aspect ratio for the cards, used in CSS
+  if (context !== null) {
+    // Style the text
+    context.fillStyle = "rgba(0, 0, 0, 0)";
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
-// These two are just helpers, they curate spring data, values that are later being interpolated into css
-const to = (i: number) => ({
-  x: 0,
-  y: i * -4,
-  scale: 1,
-  rot: -10 + Math.random() * 20,
-  delay: i * 100,
-});
-const from = (_i: number) => ({ x: 0, rot: 0, scale: 1.5, y: -1000 });
-// This is being used down there in the view, it interpolates rotation and scale into a css transform
-const trans = (r: number, s: number) =>
-  `perspective(1500px) rotateX(30deg) rotateY(${
-    r / 10
-  }deg) rotateZ(${r}deg) scale(${s*vpAspectRatio})`;
+    context.fillStyle = "#ffffff";
+    context.font = "bold 48px Arial";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
 
-function Deck({
-  onSwipeRight,
-}: {
-  onSwipeRight?: (cardIndex: number, cardUrl: string) => void;
-}) {
-  if (location.pathname !== "/") return;
-  const [gone] = useState(() => new Set()); // The set flags all the cards that are flicked out
-  const [props, api] = useSprings(cards.length, (i) => ({
-    ...to(i),
-    from: from(i),
-  })); // Create a bunch of springs using the helpers above
+    // Add glow effect
+    context.shadowColor = "#4a90e2";
+    context.shadowBlur = 2;
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+  }
 
-  // Create a gesture, we're interested in down-state, delta (current-pos - click-pos), direction and velocity
-  const bind = useDrag(
-    ({ args: [index], down, movement: [mx], direction: [xDir], velocity }) => {
-      const trigger = velocity.length > 0.2; // If you flick hard enough it should trigger the card to fly out
-      const dir = xDir < 0 ? -1 : 1; // Direction should either point left or right
-      if (!down && trigger) {
-        gone.add(index); // If button/finger's up and trigger velocity is reached, we flag the card ready to fly out
-        // Call the callback when swiped right (dir > 0)
-        if (dir > 0 && onSwipeRight) {
-          onSwipeRight(index, cards[index]);
-        }
-      }
+  // Create texture
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+};
 
-      api.start((i) => {
-        if (index !== i) return; // We're only interested in changing spring-data for the current spring
-        const isGone = gone.has(index);
-        const x = isGone ? (200 + window.innerWidth) * dir : down ? mx : 0; // When a card is gone it flys out left or right, otherwise goes back to zero
-        const rot = mx / 100 + (isGone ? dir * 10 * velocity.length : 0); // How much the card tilts, flicking it harder makes it rotate faster
-        const scale = down ? 1.1 : 1; // Active cards lift up a bit
-        return {
-          x,
-          rot,
-          scale,
-          delay: undefined,
-          config: { friction: 50, tension: down ? 800 : isGone ? 200 : 500 },
-        };
+function Cloud({ count = 4, radius = 20 }) {
+  // Create a count x count random words with spherical distribution
+  const words = useMemo(() => {
+    const temp = [];
+    const spherical = new THREE.Spherical();
+    const phiSpan = Math.PI / (count + 1);
+    const thetaSpan = (Math.PI * 2) / count;
+    for (let i = 1; i < count + 1; i++)
+      for (let j = 0; j < count; j++)
+        temp.push([
+          new THREE.Vector3().setFromSpherical(
+            spherical.set(radius, phiSpan * i, thetaSpan * j)
+          ),
+          generate(1),
+        ]);
+    return temp;
+  }, [count, radius]);
+  return words;
+}
+
+const WordSphere = () => {
+  const mountRef = useRef<any>(null);
+  const sceneRef = useRef<any>(null);
+  const rendererRef = useRef<any>(null);
+  const frameRef = useRef<any>(null);
+
+  const sphereRadius = 5;
+  const words: [THREE.Vector3, string[]][] = Cloud({
+    count: 10,
+    radius: sphereRadius,
+  }) as [THREE.Vector3, string[]][];
+
+  useEffect(() => {
+    if (!mountRef.current) return;
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xff2558); // Pure black background
+    sceneRef.current = scene;
+
+    // Add fog: (color should match or complement background)
+    scene.fog = new THREE.Fog(0xff2558, 5, 15);
+
+    // Camera setup
+    const camera = new THREE.PerspectiveCamera(
+      90,
+      mountRef.current.clientWidth / mountRef.current.clientHeight,
+      0.1,
+      1000
+    );
+    camera.position.z = 8;
+
+    // Renderer setup
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(
+      mountRef.current.clientWidth,
+      mountRef.current.clientHeight
+    );
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    rendererRef.current = renderer;
+    mountRef.current.appendChild(renderer.domElement);
+
+    // Create word meshes
+    const wordMeshes: THREE.Object3D<THREE.Object3DEventMap>[] = [];
+
+    const getRandomLightColor = (): string => {
+      const hue = Math.floor(Math.random() * 360); // Full color spectrum
+      const saturation = Math.floor(Math.random() * 30) + 40; // 40% to 70% saturation (not too dull)
+      const lightness = Math.floor(Math.random() * 20) + 75; // 75% to 95% lightness for light colors
+
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    };
+
+    // Position words on sphere surface using Fibonacci spiral
+    words.forEach(([position, wordArr], index) => {
+      const word = wordArr[0];
+      const texture = createTextTexture(word);
+
+      // Create material
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        alphaTest: 0.1,
+        side: THREE.DoubleSide,
+        color: "white",
+        // opacity: 0.9,
       });
 
-      if (!down && gone.size === cards.length)
-        setTimeout(() => {
-          gone.clear();
-          api.start((i) => to(i));
-        }, 600);
-    }
-  );
+      // Create geometry
+      const geometry = new THREE.PlaneGeometry(4, 1);
+      const mesh = new THREE.Mesh(geometry, material);
 
-  // Now we're just mapping the animated values to our view, that's it. Btw, this component only renders once. :-)
-  return (
-    <>
-      {props.map(({ x, y, rot, scale }, i) => (
-        <animated.div className={styles.deck} key={i} style={{ x, y }}>
-          {/* This is the card itself, we're binding our gesture to it (and inject its index so we know which is which) */}
-          <animated.div
-            {...bind(i)}
-            style={{
-              transform: interpolate([rot, scale], trans),
-              backgroundImage: `url(${cards[i]})`,
+      mesh.position.copy(position);
 
-              backgroundColor: "white",
-              backgroundSize: "auto 85%",
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "center",
-              width: "60%", // or use px if preferred
-              maxWidth: "150px",
-              maxHeight: "285px",
-              aspectRatio: "45 / 85", // keeps consistent height/width ratio
-              willChange: "transform",
-              borderRadius: "10px",
-              boxShadow:
-                "0 12.5px 100px -10px rgba(50, 50, 73, 0.4), 0 10px 10px -10px rgba(50, 50, 73, 0.3)",
+      // Make text face outward from sphere center
+      mesh.lookAt(camera.position.clone().multiplyScalar(2));
 
-              border: "2px solid green", // 🔍 add this for visibility
-            }}
-          />
-        </animated.div>
-      ))}
-    </>
-  );
-}
+      // Store original position and rotation for animation
+      mesh.userData = {
+        originalPosition: mesh.position.clone(),
+        originalRotation: mesh.rotation.clone(),
+        rotationSpeed: (Math.random() - 0.5) * 0.02,
+        floatSpeed: (Math.random() - 0.5) * 0.01,
+      };
 
-function MainPageCardsDiv() {
-  const navigate = useNavigate();
-  const handleSwipeRight = (cardIndex: number, cardUrl: string) => {
-    console.log(`Liked card ${cardIndex} with url ${cardUrl}!`);
-    navigate("/work-selection", {
-      state: {
-        cardIndex,
-        cardUrl,
-        action: "liked",
-      },
+      scene.add(mesh);
+      wordMeshes.push(mesh);
     });
-  };
+
+    // Mouse/Touch interaction for rotation
+    const mouse = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+    const rotationState = {
+      isRotating: false,
+      previousMousePosition: { x: 0, y: 0 },
+      rotationSpeed: 0.005,
+    };
+
+    const target = new THREE.Vector3(0, 0, 0); // Center of sphere
+    const spherical = new THREE.Spherical();
+    spherical.radius = 8;
+    spherical.theta = 0;
+    spherical.phi = Math.PI / 2;
+
+    const onMouseMove = (event: { clientX: number; clientY: number }) => {
+      const rect = mountRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      if (rotationState.isRotating) {
+        const deltaMove = {
+          x: event.clientX - rotationState.previousMousePosition.x,
+          y: event.clientY - rotationState.previousMousePosition.y,
+        };
+
+        spherical.theta -= deltaMove.x * rotationState.rotationSpeed;
+        spherical.phi -= deltaMove.y * rotationState.rotationSpeed;
+
+        // Clamp phi to prevent camera flipping over poles
+        const EPS = 0.01;
+        spherical.phi = Math.max(EPS, Math.min(Math.PI - EPS, spherical.phi));
+
+        // theta wraps around naturally, so no clamp needed for theta
+
+        rotationState.previousMousePosition = {
+          x: event.clientX,
+          y: event.clientY,
+        };
+      }
+    };
+
+    const onMouseDown = (event: { clientX: any; clientY: any }) => {
+      rotationState.isRotating = true;
+      rotationState.previousMousePosition = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+      mountRef.current.style.cursor = "grabbing";
+    };
+
+    const onMouseUp = () => {
+      rotationState.isRotating = false;
+      mountRef.current.style.cursor = "grab";
+    };
+
+    const onMouseClick = () => {
+      if (!rotationState.isRotating) {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(wordMeshes);
+
+        if (intersects.length > 0) {
+          const clickedMesh = intersects[0].object;
+          // Animate clicked word
+          clickedMesh.scale.set(1.2, 1.2, 1.2);
+          setTimeout(() => {
+            clickedMesh.scale.set(1, 1, 1);
+          }, 200);
+        }
+      }
+    };
+
+    // Touch events for mobile
+    const onTouchStart = (event: {
+      preventDefault: () => void;
+      touches: any[];
+    }) => {
+      event.preventDefault();
+      const touch = event.touches[0];
+      rotationState.isRotating = true;
+      rotationState.previousMousePosition = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    };
+
+    const onTouchMove = (event: {
+      preventDefault: () => void;
+      touches: string | any[];
+    }) => {
+      event.preventDefault();
+      if (rotationState.isRotating && event.touches.length === 1) {
+        const touch = event.touches[0];
+        const deltaMove = {
+          x: touch.clientX - rotationState.previousMousePosition.x,
+          y: touch.clientY - rotationState.previousMousePosition.y,
+        };
+
+        scene.rotation.y += deltaMove.x * rotationState.rotationSpeed;
+        scene.rotation.x += deltaMove.y * rotationState.rotationSpeed;
+
+        rotationState.previousMousePosition = {
+          x: touch.clientX,
+          y: touch.clientY,
+        };
+      }
+    };
+
+    const onTouchEnd = (event: { preventDefault: () => void }) => {
+      event.preventDefault();
+      rotationState.isRotating = false;
+    };
+
+    mountRef.current.addEventListener("mousemove", onMouseMove);
+    mountRef.current.addEventListener("mousedown", onMouseDown);
+    mountRef.current.addEventListener("mouseup", onMouseUp);
+    mountRef.current.addEventListener("click", onMouseClick);
+    mountRef.current.addEventListener("touchstart", onTouchStart);
+    mountRef.current.addEventListener("touchmove", onTouchMove);
+    mountRef.current.addEventListener("touchend", onTouchEnd);
+
+    // Animation loop
+    const animate = () => {
+      frameRef.current = requestAnimationFrame(animate);
+
+      // Convert spherical to Cartesian coordinates
+      const newPosition = new THREE.Vector3().setFromSpherical(spherical);
+      camera.position.copy(newPosition);
+      camera.lookAt(target);
+
+      // Animate individual words with subtle floating
+      wordMeshes.forEach((mesh, index) => {
+        // Subtle floating animation
+        mesh.position.y =
+          mesh.userData.originalPosition.y +
+          Math.sin(Date.now() * 0.001 + index) * 0.1;
+
+        // Slight rotation
+        mesh.rotation.z =
+          mesh.userData.originalRotation.z +
+          Math.sin(Date.now() * 0.001 + index) * 0.1;
+
+        // Always face the camera
+        mesh.lookAt(camera.position);
+      });
+
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    // Handle resize
+    const handleResize = () => {
+      if (!mountRef.current) return;
+
+      const width = mountRef.current.clientWidth;
+      const height = mountRef.current.clientHeight;
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    // Cleanup
+    return () => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+
+      window.removeEventListener("resize", handleResize);
+
+      if (mountRef.current && renderer.domElement) {
+        mountRef.current.removeEventListener("mousemove", onMouseMove);
+        mountRef.current.removeEventListener("mousedown", onMouseDown);
+        mountRef.current.removeEventListener("mouseup", onMouseUp);
+        mountRef.current.removeEventListener("click", onMouseClick);
+        mountRef.current.removeEventListener("touchstart", onTouchStart);
+        mountRef.current.removeEventListener("touchmove", onTouchMove);
+        mountRef.current.removeEventListener("touchend", onTouchEnd);
+        mountRef.current.removeChild(renderer.domElement);
+      }
+
+      // Dispose of Three.js objects
+      scene.traverse((object) => {
+        if ((object as THREE.Mesh).isMesh) {
+          const mesh = object as THREE.Mesh;
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((material) => {
+                if ((material as any).map) (material as any).map.dispose();
+                material.dispose();
+              });
+            } else {
+              if ((mesh.material as any).map)
+                (mesh.material as any).map.dispose();
+              mesh.material.dispose();
+            }
+          }
+        }
+      });
+
+      renderer.dispose();
+    };
+  }, []);
 
   return (
-    <div className={styles.container}>
-      <Deck key={Math.random()} onSwipeRight={handleSwipeRight} />
-    </div>
+    <div
+      ref={mountRef}
+      className="w-full h-screen"
+      style={{ cursor: "grab" }}
+    />
   );
-}
+};
 
-export default MainPageCardsDiv;
+export default WordSphere;

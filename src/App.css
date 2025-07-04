@@ -19,3 +19,7 @@ body {
 *:before {
   box-sizing: border-box;
 }
+
+div.null{
+  display:none;
+}

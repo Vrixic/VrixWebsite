@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import {
   useSprings,
   animated,
@@ -10,7 +10,7 @@ import {
 
 import styles from "./main-page.module.css";
 import { useDrag } from "@use-gesture/react";
-import { useNavigate } from "react-router-dom";
+import { NavigateFunction, useLocation, useNavigate } from "react-router-dom";
 
 const cards = [
   {
@@ -205,6 +205,7 @@ function Deck({
         }));
       }, 500);
   });
+
   // Now we're just mapping the animated values to our view, that's it. Btw, this component only renders once. :-)
   return (
     <>
@@ -396,10 +397,14 @@ function Deck({
   );
 }
 
-function MainPageCardsDiv() {
-  const navigate = useNavigate();
+interface MainPageCardsDivProps {
+  navigate: NavigateFunction;
+}
+
+function MainPageCardsDiv({ navigate }: MainPageCardsDivProps) {
   const handleSwipeRight = (cardIndex: number, cardUrl: string) => {
     console.log(`Liked card ${cardIndex} with url ${cardUrl}!`);
+    // Hide the deck using state
     setTimeout(() => {
       navigate(cards[cardIndex].route, {
         state: {
@@ -413,7 +418,7 @@ function MainPageCardsDiv() {
 
   return (
     <div className={styles.container}>
-      <Deck onSwipeRight={handleSwipeRight} />
+      <Deck key={Math.random()} onSwipeRight={handleSwipeRight} />
     </div>
   );
 }

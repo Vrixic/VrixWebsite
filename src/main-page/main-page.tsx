@@ -227,9 +227,14 @@ function Deck({
                   }px, 0px) rotate3d(0, 1, 1, -55deg)`
               ),
               fontSize: toturialSpring.x.to(
-                [0, 1],
-                [0, 200 * vpAspectRatio * globalCardScaling]
-              ),
+                      [0, 1],
+                      [
+                        0,
+                        Math.min(window.innerWidth, window.innerHeight) *
+                          0.3 *
+                          globalCardScaling,
+                      ]
+                    ),
               color: gTextColor,
               willChange: "transform",
               opacity: toturialSpring.x.to([0, 1], [0, 1]),
@@ -267,7 +272,12 @@ function Deck({
                     ),
                     fontSize: t.to(
                       [0, 1],
-                      [0, 175 * vpAspectRatio * globalCardScaling]
+                      [
+                        0,
+                        Math.min(window.innerWidth, window.innerHeight) *
+                          0.3 *
+                          globalCardScaling,
+                      ]
                     ),
                     willChange: "transform",
                     // top: "-37.5%",
@@ -293,7 +303,12 @@ function Deck({
                     ),
                     fontSize: t.to(
                       [0, 1],
-                      [0, 175 * vpAspectRatio * globalCardScaling]
+                      [
+                        0,
+                        Math.min(window.innerWidth, window.innerHeight) *
+                          0.3 *
+                          globalCardScaling,
+                      ]
                     ),
                     willChange: "transform",
                     // top: "-37.5%",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSprings, animated, to as interpolate } from "@react-spring/web";
 import { useNavigate } from "react-router";
 
@@ -14,6 +14,8 @@ const cards = [
   "https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg",
 ];
 
+const vpAspectRatio = innerWidth / innerHeight; // Aspect ratio for the cards, used in CSS
+
 // These two are just helpers, they curate spring data, values that are later being interpolated into css
 const to = (i: number) => ({
   x: 0,
@@ -27,7 +29,7 @@ const from = (_i: number) => ({ x: 0, rot: 0, scale: 1.5, y: -1000 });
 const trans = (r: number, s: number) =>
   `perspective(1500px) rotateX(30deg) rotateY(${
     r / 10
-  }deg) rotateZ(${r}deg) scale(${s})`;
+  }deg) rotateZ(${r}deg) scale(${s*vpAspectRatio})`;
 
 function Deck({
   onSwipeRight,
@@ -76,18 +78,6 @@ function Deck({
         }, 600);
     }
   );
-
-  // useEffect(() => {
-  //   console.log("Deck::UseEffect()");
-  //   return () => {
-  //     console.log("🔴 Component unmounted");
-  //   if (location.origin !== "/" && location.pathname === "/") {
-  //     window.location.reload();
-  //   }
-  //     // You can clear timers, listeners, state, etc. here
-  //   };
-  // }, [location.pathname, props]); // Dependency on the route path
-  // console.log("Deck");
 
   // Now we're just mapping the animated values to our view, that's it. Btw, this component only renders once. :-)
   return (

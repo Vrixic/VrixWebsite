@@ -1,30 +1,95 @@
-import { useSprings, animated } from "@react-spring/three";
-import { useNavigate, useLocation } from "react-router-dom";
-import * as THREE from "three";
-import { Suspense, useState } from "react";
+import { useState } from "react";
+import {
+  useSprings,
+  animated,
+  to as interpolate,
+  useSpring,
+  SpringValue,
+  SpringRef,
+} from "@react-spring/web";
+
+import styles from "./main-page.module.css";
 import { useDrag } from "@use-gesture/react";
+import { useNavigate } from "react-router-dom";
 
 const cards = [
-  "https://upload.wikimedia.org/wikipedia/commons/f/f5/RWS_Tarot_08_Strength.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/5/53/RWS_Tarot_16_Tower.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/9/9b/RWS_Tarot_07_Chariot.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/d/db/RWS_Tarot_06_Lovers.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/RWS_Tarot_02_High_Priestess.jpg/690px-RWS_Tarot_02_High_Priestess.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg",
+  {
+    url: "https://upload.wikimedia.org/wikipedia/commons/9/9b/RWS_Tarot_07_Chariot.jpg",
+    title: "about",
+    belowTitle: "me",
+    route: "/about-me",
+  },
+  {
+    url: "https://upload.wikimedia.org/wikipedia/commons/d/db/RWS_Tarot_06_Lovers.jpg",
+    title: "resume",
+    belowTitle: "",
+    route: "/resume",
+  },
+  {
+    url: "https://upload.wikimedia.org/wikipedia/commons/5/53/RWS_Tarot_16_Tower.jpg",
+    title: "personal",
+    belowTitle: "work",
+    route: "/personal-work",
+  },
+  {
+    url: "https://upload.wikimedia.org/wikipedia/commons/f/f5/RWS_Tarot_08_Strength.jpg",
+    title: "professional",
+    belowTitle: "work",
+    route: "/professional-work",
+  },
 ];
 
+let elementKeys: number = 10;
+
+const vpAspectRatio = innerWidth / innerHeight; // Aspect ratio for the cards, used in CSS
+const globalCardScaling = 0.5;
+
 // These two are just helpers, they curate spring data, values that are later being interpolated into css
-
-const degToRad = (deg: number) => (deg * Math.PI) / 180;
-
-const initialRotations = cards.map(() => Math.random() * 20 - 10); // Random between -10 and +10
 const to = (i: number) => ({
-  position: [0, 0, i * 0.01],
-  scale: 2.5,
-  rot: Math.random() * 20,
+  x: 0,
+  y: i * -4,
+  scale: 1.5,
+  rot: -10 + Math.random() * 20,
   delay: i * 100,
 });
-const from = (_i: number) => ({ position: [1000, 0, 0], rot: 0, scale: 5 });
+const from = (_i: number) => ({ x: 0, rot: 0, scale: 2, y: -1000 });
+// This is being used down there in the view, it interpolates rotation and scale into a css transform
+const trans = (r: number, s: number) =>
+  `perspective(1500px) rotateX(30deg) rotateY(${
+    r / 10
+  }deg) rotateZ(${r}deg) scale(${s * vpAspectRatio * globalCardScaling})`;
+
+const toTitle = (i: number) => ({
+  x: 0,
+  title: cards[i].title,
+  config: { mass: 5, tension: 1000, friction: 50, precision: 0.0001 },
+});
+
+const fromTitle = (_i: number) => ({
+  x: 0,
+  title: "",
+});
+
+const toLetters = (_i: number) => ({
+  t: 0,
+  letter: "",
+  r: Math.random(),
+  config: { mass: 5, tension: 1000, friction: 50, precision: 0.0001 },
+});
+
+const fromLetters = (_i: number) => ({
+  t: 0,
+  r: 0,
+  letter: "",
+});
+
+let enableDragging = true;
+
+const redColor = "#ff2558";
+
+const gBackgroundColor2 = redColor;
+const gTextColor = "#ffffff";
+const gBackgroundColor1 = redColor;
 
 function Deck({
   onSwipeRight,
@@ -32,102 +97,286 @@ function Deck({
   onSwipeRight?: (cardIndex: number, cardUrl: string) => void;
 }) {
   const [gone] = useState(() => new Set()); // The set flags all the cards that are flicked out
-  const location = useLocation();
-  const textures = cards.map((card) => new THREE.TextureLoader().load(card));
-
-  // only render on "/" route
-  if (location.pathname !== "/") return null;
-
-  const [springs, api] = useSprings(cards.length, (i) => ({
+  const [props, api] = useSprings(cards.length, (i) => ({
     ...to(i),
     from: from(i),
+  })); // Create a bunch of springs using the helpers above
+
+  const [props2, api2] = useSprings(cards.length, (i: number) => ({
+    ...toTitle(i),
+    from: fromTitle(i),
   }));
 
-  let cIndex = 1; // Current card index, used for debugging
+  let cardTitleLettersSprings: Array<
+    [
+      {
+        t: SpringValue<number>;
+        letter: SpringValue<string>;
+        r: SpringValue<number>;
+      }[],
+      SpringRef<{
+        t: number;
+        letter: string;
+        r: number;
+      }>
+    ]
+  > = [];
+  cards.map((card) => {
+    cardTitleLettersSprings.push(
+      useSprings(card.title.length, (i: number) => ({
+        ...toLetters(i),
+        from: fromLetters(i),
+      }))
+    );
+  });
+
+  let cardBelowTitleLettersSprings: Array<
+    [
+      {
+        t: SpringValue<number>;
+        letter: SpringValue<string>;
+        r: SpringValue<number>;
+      }[],
+      SpringRef<{
+        t: number;
+        letter: string;
+        r: number;
+      }>
+    ]
+  > = [];
+  cards.map((card) => {
+    cardBelowTitleLettersSprings.push(
+      useSprings(card.belowTitle.length, (i: number) => ({
+        ...toLetters(i),
+        from: fromLetters(i),
+      }))
+    );
+  });
+
+  const [toturialSpring, toturialSpringApi] = useSpring(() => ({
+    to: {
+      x: 1,
+      config: { mass: 5, tension: 1000, friction: 50, precision: 0.0001 },
+    },
+    from: {
+      x: 0,
+    },
+  }));
 
   // Create a gesture, we're interested in down-state, delta (current-pos - click-pos), direction and velocity
-  const bind = useDrag(
-    ({ args: [index], down, movement: [mx], direction: [xDir], velocity }) => {
-      const trigger = velocity.length > 0.2; // If you flick hard enough it should trigger the card to fly out
-      const dir = xDir < 0 ? -1 : 1; // Direction should either point left or right
-      console.log(`Card ${index} ${cIndex} velocity: ${velocity.length}, dir: ${dir}, down: ${down}, mx: ${mx}`);
-      if (!down && trigger && Math.abs(mx) > 250) {
-        gone.add(index); // If button/finger's up and trigger velocity is reached, we flag the card ready to fly out
-        // Call the callback when swiped right (dir > 0)
-        if (dir > 0 && onSwipeRight) {
-          onSwipeRight(index, cards[index]);
-        }
+  const bind = useDrag(({ args: [index], down, movement: [mx], velocity }) => {
+    if (!enableDragging) return; // Disable dragging if needed
+
+    const trigger = velocity.length > 0.2; // If you flick hard enough it should trigger the card to fly out
+    const dir = mx < 0 ? -1 : 1; // Direction should either point left or right
+    if (!down && trigger && Math.abs(mx) > 100 * vpAspectRatio) {
+      gone.add(index); // If button/finger's up and trigger velocity is reached, we flag the card ready to fly out
+      // Call the callback when swiped right (dir > 0)
+      if (dir > 0 && onSwipeRight) {
+        onSwipeRight(index, cards[index].url);
       }
-
-      if (index !== cards.length - cIndex) return;
-
-      const speed = 0.01;
-      api.start((i) => {
-        if (index !== i) return; // We're only interested in changing spring-data for the current spring
-        const isGone = gone.has(index);
-        const x = isGone ? (200 + window.innerWidth) * dir : down ? mx : 0; // When a card is gone it flys out left or right, otherwise goes back to zero
-        const rot = mx / 100 + (isGone ? dir * 10 * velocity.length : 0); // How much the card tilts, flicking it harder makes it rotate faster
-        const scale = down ? 3 : 2.5; // Active cards lift up a bit
-        return {
-          position: [x * speed, 0, i * 0.01],
-          rot,
-          scale,
-          delay: undefined,
-          config: { friction: 50, tension: down ? 800 : isGone ? 200 : 500 },
-        };
-      });
-
-      cIndex = gone.size + 1; // Increment current card index
-
-      if (!down && gone.size === cards.length)
-        setTimeout(() => {
-          gone.clear();
-          cIndex = 1; // Reset current card index
-          api.start((i) => to(i));
-        }, 600);
     }
-  );
 
+    api.start((i) => {
+      if (index !== i) return; // We're only interested in changing spring-data for the current spring
+      const isGone = gone.has(index);
+      const x = isGone ? (200 + window.innerWidth) * dir : down ? mx : 0; // When a card is gone it flys out left or right, otherwise goes back to zero
+      const rot = mx / 100 + (isGone ? dir * 10 * velocity.length : 0); // How much the card tilts, flicking it harder makes it rotate faster
+      const scale = down ? 1.75 : 1.5; // Active cards lift up a bit
+      return {
+        x,
+        rot,
+        scale,
+        delay: undefined,
+        config: { friction: 50, tension: down ? 800 : isGone ? 200 : 500 },
+      };
+    });
+
+    if (!down && gone.size === cards.length)
+      setTimeout(() => {
+        gone.clear();
+        api.start((i) => to(i));
+        api2.start(() => ({
+          x: 0,
+          title: "",
+        }));
+        toturialSpringApi.start(() => ({
+          x: 1,
+        }));
+      }, 500);
+  });
+  // Now we're just mapping the animated values to our view, that's it. Btw, this component only renders once. :-)
   return (
     <>
-      {springs.map(({ position, rot, scale }, i) => (
-        <animated.mesh
-          {...bind(i)}
-          castShadow
-          receiveShadow
-          key={i}
-          position={position.to(
-            (x, y, z) => [x, y, z] as [number, number, number]
-          )}
-          rotation={rot
-            .to(
-              (r) =>
-                new THREE.Euler(
-                  -degToRad(10),
-                  degToRad(0),
-                  degToRad(initialRotations[i])
-                )
-            )
-            .get()}
-          scale={scale.to((s) => [s, s, s] as [number, number, number])}
+      <div>
+        <animated.div
+          key={elementKeys++}
+          className={styles.deck}
+          style={{
+            opacity: toturialSpring.x.to([0, 1], [0, 1]),
+            zIndex: 0,
+          }}
         >
-          <planeGeometry args={[1, 1.5]} />
-          <meshBasicMaterial
-            map={textures[i]}
-            side={THREE.DoubleSide}
-            toneMapped={true}
-          />
-          {/* Box outline */}
-          <mesh>
-            <boxGeometry args={[1.05, 1.55, -0.01]} />
-            <meshBasicMaterial
-              map={textures[i]}
-              side={THREE.DoubleSide}
-              toneMapped={true}
+          <animated.span
+            key={elementKeys++}
+            style={{
+              transform: toturialSpring.x.to(
+                (value) =>
+                  `translate3d(${-150 * value * vpAspectRatio}px, ${
+                    -100 * value * vpAspectRatio
+                  }px, 0px) rotate3d(0, 1, 1, -55deg)`
+              ),
+              fontSize: toturialSpring.x.to(
+                [0, 1],
+                [0, 200 * vpAspectRatio * globalCardScaling]
+              ),
+              color: gTextColor,
+              willChange: "transform",
+              opacity: toturialSpring.x.to([0, 1], [0, 1]),
+            }}
+          >
+            {"Swipe"}
+          </animated.span>
+        </animated.div>
+        {props2.map(({ x }, i) => (
+          <animated.div
+            key={elementKeys++}
+            className={styles.deck}
+            style={{
+              backgroundColor: x.to(
+                [0, 1],
+                [gBackgroundColor1, gBackgroundColor2]
+              ),
+              color: x.to([0, 1], [gBackgroundColor1, gTextColor]),
+              opacity: x.to([0, 1], [0, 1]),
+              zIndex: 0,
+            }}
+          >
+            {cardTitleLettersSprings[i][0].map(
+              ({ t, letter, r }, _j: number) => (
+                <animated.span
+                  key={elementKeys++}
+                  style={{
+                    transform: t.to(
+                      (value) =>
+                        `translate3d(${0 * value * vpAspectRatio}px, ${
+                          -150 * value * vpAspectRatio
+                        }px, 0px) rotate3d(1, 0, 0, 55deg)rotate3d(0, 0, 1, ${
+                          r.get() * 5
+                        }deg)`
+                    ),
+                    fontSize: t.to(
+                      [0, 1],
+                      [0, 175 * vpAspectRatio * globalCardScaling]
+                    ),
+                    willChange: "transform",
+                    // top: "-37.5%",
+                    opacity: t.to([0, 1], [0, 1]),
+                  }}
+                >
+                  {letter}
+                </animated.span>
+              )
+            )}
+            {cardBelowTitleLettersSprings[i][0].map(
+              ({ t, letter, r }, _j: number) => (
+                <animated.span
+                  key={elementKeys++}
+                  style={{
+                    transform: t.to(
+                      (value) =>
+                        `translate3d(${0 * value * vpAspectRatio}px, ${
+                          150 * value * vpAspectRatio
+                        }px, 0px) rotate3d(1, 0, 0, 55deg)rotate3d(0, 0, 1, ${
+                          r.get() * 5
+                        }deg)`
+                    ),
+                    fontSize: t.to(
+                      [0, 1],
+                      [0, 175 * vpAspectRatio * globalCardScaling]
+                    ),
+                    willChange: "transform",
+                    // top: "-37.5%",
+                    opacity: t.to([0, 1], [0, 1]),
+                  }}
+                >
+                  {letter}
+                </animated.span>
+              )
+            )}
+          </animated.div>
+        ))}
+        {props.map(({ x, y, rot, scale }, i) => (
+          <animated.div className={styles.deck} key={i} style={{ x, y }}>
+            {/* This is the card itself, we're binding our gesture to it (and inject its index so we know which is which) */}
+            <animated.div
+              {...bind(i)}
+              onMouseDown={() => {
+                if (!enableDragging) return; // Disable dragging if needed
+                api2.start((ci) => ({
+                  x: ci == i ? 1 : 0,
+                  title: cards[i].title,
+                }));
+                cardTitleLettersSprings[i][1].start((li) => ({
+                  t: 1,
+                  letter: cards[i].title[li],
+                }));
+                cardBelowTitleLettersSprings[i][1].start((li) => ({
+                  t: 1,
+                  letter: cards[i].belowTitle[li],
+                }));
+
+                toturialSpringApi.start(() => ({
+                  x: 0,
+                }));
+              }}
+              onMouseUp={() => {
+                api2.start(() => ({
+                  x: 0,
+                  title: "",
+                }));
+                cardTitleLettersSprings[i][1].start(() => ({
+                  t: 0,
+                  letter: "",
+                }));
+                cardBelowTitleLettersSprings[i][1].start(() => ({
+                  t: 0,
+                  letter: "",
+                }));
+
+                toturialSpringApi.start(() => ({
+                  x: 1,
+                }));
+                enableDragging = false;
+
+                setTimeout(() => {
+                  enableDragging = true;
+                }, 100);
+              }}
+              style={{
+                transform: interpolate([rot, scale], trans),
+                backgroundImage: `url(${cards[i].url})`,
+
+                touchAction: "none",
+
+                backgroundColor: "white",
+                backgroundSize: "auto 85%",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                width: "60%", // or use px if preferred
+                maxWidth: "150px",
+                maxHeight: "285px",
+                aspectRatio: "45 / 85", // keeps consistent height/width ratio
+                willChange: "transform",
+                borderRadius: "10px",
+                boxShadow:
+                  "0 12.5px 100px -10px rgba(255, 255, 255, 0.1), 0 10px 10px -10px rgba(255, 255, 255, 0.05)",
+                zIndex: 0,
+              }}
             />
-          </mesh>
-        </animated.mesh>
-      ))}
+          </animated.div>
+        ))}
+      </div>
     </>
   );
 }
@@ -137,21 +386,20 @@ function MainPageCardsDiv() {
   const handleSwipeRight = (cardIndex: number, cardUrl: string) => {
     console.log(`Liked card ${cardIndex} with url ${cardUrl}!`);
     setTimeout(() => {
-      navigate("/work-selection", {
-      state: {
-        cardIndex,
-        cardUrl,
-        action: "liked",
-      },
-    });
-    }, 100); // Delay to allow the card to animate out before navigating
-    
+      navigate(cards[cardIndex].route, {
+        state: {
+          cardIndex,
+          cardUrl,
+          action: "liked",
+        },
+      });
+    }, 100);
   };
 
   return (
-    <Suspense>
-      <Deck key={Math.random()} onSwipeRight={handleSwipeRight} />
-    </Suspense>
+    <div className={styles.container}>
+      <Deck onSwipeRight={handleSwipeRight} />
+    </div>
   );
 }
 

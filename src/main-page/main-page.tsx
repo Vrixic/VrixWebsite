@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   useSprings,
   animated,
@@ -10,7 +10,9 @@ import {
 
 import styles from "./main-page.module.css";
 import { useDrag } from "@use-gesture/react";
-import { NavigateFunction, useLocation, useNavigate } from "react-router-dom";
+import { NavigateFunction } from "react-router-dom";
+import { Canvas } from "@react-three/fiber";
+import { GLOBAL_FONT_SCALE, VP_ASPECT_RATIO } from "../generic/global-properties";
 
 const cards = [
   {
@@ -41,7 +43,6 @@ const cards = [
 
 let elementKeys: number = 10;
 
-const vpAspectRatio = innerWidth / innerHeight; // Aspect ratio for the cards, used in CSS
 const globalCardScaling = 0.5;
 
 // These two are just helpers, they curate spring data, values that are later being interpolated into css
@@ -57,7 +58,7 @@ const from = (_i: number) => ({ x: 0, rot: 0, scale: 2, y: -1000 });
 const trans = (r: number, s: number) =>
   `perspective(1500px) rotateX(30deg) rotateY(${
     r / 10
-  }deg) rotateZ(${r}deg) scale(${s * vpAspectRatio * globalCardScaling})`;
+  }deg) rotateZ(${r}deg) scale(${s * VP_ASPECT_RATIO * globalCardScaling})`;
 
 const toTitle = (i: number) => ({
   x: 0,
@@ -169,7 +170,7 @@ function Deck({
 
     const trigger = velocity.length > 0.2; // If you flick hard enough it should trigger the card to fly out
     const dir = mx < 0 ? -1 : 1; // Direction should either point left or right
-    if (!down && trigger && Math.abs(mx) > 100 * vpAspectRatio) {
+    if (!down && trigger && Math.abs(mx) > 100 * VP_ASPECT_RATIO) {
       gone.add(index); // If button/finger's up and trigger velocity is reached, we flag the card ready to fly out
       // Call the callback when swiped right (dir > 0)
       if (dir > 0 && onSwipeRight) {
@@ -223,15 +224,15 @@ function Deck({
             style={{
               transform: toturialSpring.x.to(
                 (value) =>
-                  `translate3d(${-150 * value * vpAspectRatio}px, ${
-                    -100 * value * vpAspectRatio
+                  `translate3d(${-150 * value * VP_ASPECT_RATIO}px, ${
+                    -100 * value * VP_ASPECT_RATIO
                   }px, 0px) rotate3d(0, 1, 1, -55deg)`
               ),
               fontSize: toturialSpring.x.to(
                 [0, 1],
                 [
                   0,
-                  Math.min(window.innerWidth, window.innerHeight) *
+                  GLOBAL_FONT_SCALE *
                     0.3 *
                     globalCardScaling,
                 ]
@@ -265,7 +266,7 @@ function Deck({
                   style={{
                     transform: t.to(
                       (value) =>
-                        `translate3d(${0 * value * vpAspectRatio}px, ${
+                        `translate3d(${0 * value * VP_ASPECT_RATIO}px, ${
                           window.innerHeight * value * -0.3
                         }px, 0px) rotate3d(1, 0, 0, 55deg)rotate3d(0, 0, 1, ${
                           r.get() * 5
@@ -296,7 +297,7 @@ function Deck({
                   style={{
                     transform: t.to(
                       (value) =>
-                        `translate3d(${0 * value * vpAspectRatio}px, ${
+                        `translate3d(${0 * value * VP_ASPECT_RATIO}px, ${
                           window.innerHeight * value * 0.3
                         }px, 0px) rotate3d(1, 0, 0, 55deg)rotate3d(0, 0, 1, ${
                           r.get() * 5
@@ -373,7 +374,7 @@ function Deck({
                 transform: interpolate([rot, scale], trans),
                 backgroundImage: `url(${cards[i].url})`,
 
-                touchAction: "none",
+                touchAction: "auto",
 
                 backgroundColor: "white",
                 backgroundSize: "auto 85%",
@@ -418,6 +419,7 @@ function MainPageCardsDiv({ navigate }: MainPageCardsDivProps) {
 
   return (
     <div className={styles.container}>
+      <Canvas children={undefined}></Canvas>
       <Deck key={Math.random()} onSwipeRight={handleSwipeRight} />
     </div>
   );

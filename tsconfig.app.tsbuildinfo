@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/main-page/main-page.tsx","./src/main-page/mainpage.tsx","./src/work-selection-page/work-selection-page.tsx"],"version":"5.8.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/generic/global-properties.tsx","./src/main-page/main-page.tsx","./src/main-page/mainpage.tsx","./src/work-selection-page/work-selection-page.tsx"],"version":"5.8.3"}

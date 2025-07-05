@@ -97,16 +97,16 @@ const WordSphere = () => {
     // Create word meshes
     const wordMeshes: THREE.Object3D<THREE.Object3DEventMap>[] = [];
 
-    const getRandomLightColor = (): string => {
-      const hue = Math.floor(Math.random() * 360); // Full color spectrum
-      const saturation = Math.floor(Math.random() * 30) + 40; // 40% to 70% saturation (not too dull)
-      const lightness = Math.floor(Math.random() * 20) + 75; // 75% to 95% lightness for light colors
+    // const getRandomLightColor = (): string => {
+    //   const hue = Math.floor(Math.random() * 360); // Full color spectrum
+    //   const saturation = Math.floor(Math.random() * 30) + 40; // 40% to 70% saturation (not too dull)
+    //   const lightness = Math.floor(Math.random() * 20) + 75; // 75% to 95% lightness for light colors
 
-      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-    };
+    //   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    // };
 
     // Position words on sphere surface using Fibonacci spiral
-    words.forEach(([position, wordArr], index) => {
+    words.forEach(([position, wordArr]) => {
       const word = wordArr[0];
       const texture = createTextTexture(word);
 

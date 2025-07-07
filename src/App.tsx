@@ -1,16 +1,16 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import "./App.css";
-import {
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from "react-router";
+import { Route, Routes, useLocation, useNavigate } from "react-router";
+import LoadingScreen from "./loading-screen/loading-screen";
+import { delay } from "./generic/global-properties";
+// import WordSphere from "./work-selection-page/work-selection-page";
 
-const WordSphere = lazy(
-  () => import("./work-selection-page/work-selection-page")
+const ProfessionalPage = lazy(
+  () => import("./professional-page/professional-page")
 );
-const MainPage = lazy(() => import("./main-page/main-page"));
+export const MainPage = lazy(() =>
+  delay(2000).then(() => import("./main-page/main-page"))
+);
 
 function App() {
   const location = useLocation();
@@ -35,19 +35,17 @@ function App() {
 
   return (
     <div>
-      <Suspense fallback={<div>Loading...</div>}>
-        {routeStateChanged && 
-        currentPath === "/" && (
+      <Suspense fallback={<LoadingScreen></LoadingScreen>}>
+        {routeStateChanged && currentPath === "/" && (
           <MainPage navigate={navigate} />
         )}
-        {routeStateChanged && 
-        currentPath === "/resume" && (
-          <WordSphere />
+        {routeStateChanged && currentPath === "/professional" && (
+          <ProfessionalPage navigate={navigate} />
         )}
       </Suspense>
       <Routes>
         <Route path="/" element={<div className="null" />} />
-        <Route path="/resume" element={<div className="null" />} />
+        <Route path="/professional" element={<div className="null" />} />
       </Routes>
     </div>
   );

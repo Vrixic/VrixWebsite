@@ -1,14 +1,163 @@
-import CardDeck from "../deck/deck";
-import { MainPageCards, RouteInitProps } from "../generic/global-properties";
+import { useEffect } from "react";
+import NavDockComponent from "../components/nav/nav-component";
+import { RouteInitProps } from "../generic/global-properties";
+import {
+  VscHome,
+  VscArchive,
+  VscAccount,
+  VscSettingsGear,
+} from "react-icons/vsc";
+import ClickSpark from "../components/pointer/click/click-spark";
 
-function MainPageCardsDiv(routeProps: RouteInitProps) {
-  const cards = MainPageCards;
+import { useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import {
+  useScroll,
+  Text,
+  Image,
+  Scroll,
+  Preload,
+  ScrollControls,
+} from "@react-three/drei";
+
+const items = [
+  { icon: <VscHome size={18} />, label: "Home", onClick: () => alert("Home!") },
+  {
+    icon: <VscArchive size={18} />,
+    label: "Archive",
+    onClick: () => alert("Archive!"),
+  },
+  {
+    icon: <VscAccount size={18} />,
+    label: "Profile",
+    onClick: () => alert("Profile!"),
+  },
+  {
+    icon: <VscSettingsGear size={18} />,
+    label: "Settings",
+    onClick: () => alert("Settings!"),
+  },
+];
+
+function Images() {
+  const group = useRef<any>(null);
+  const data = useScroll();
+  const { width, height } = useThree((state) => state.viewport);
+  useFrame(() => {
+    group.current.children[0].material.zoom = 1 + data.range(0, 1 / 3) / 3;
+    group.current.children[1].material.zoom = 1 + data.range(0, 1 / 3) / 3;
+    group.current.children[2].material.zoom =
+      1 + data.range(1.15 / 3, 1 / 3) / 2;
+    group.current.children[3].material.zoom =
+      1 + data.range(1.15 / 3, 1 / 3) / 2;
+    group.current.children[4].material.zoom =
+      1 + data.range(1.15 / 3, 1 / 3) / 2;
+    group.current.children[5].material.grayscale =
+      1 - data.range(1.6 / 3, 1 / 3);
+    group.current.children[6].material.zoom =
+      1 + (1 - data.range(2 / 3, 1 / 3)) / 3;
+  });
+  return (
+    <group ref={group}>
+      <Image position={[-2, 0, 0]} scale={[4, height]} url="/img1.jpg" />
+      <Image position={[2, 0, 3]} scale={3} url="/img6.jpg" />
+      <Image position={[-2.05, -height, 6]} scale={[1, 3]} url="/trip2.jpg" />
+      <Image position={[-0.6, -height, 9]} scale={[1, 2]} url="/img8.jpg" />
+      <Image position={[0.75, -height, 10.5]} scale={1.5} url="/trip4.jpg" />
+      <Image
+        position={[0, -height * 1.5, 7.5]}
+        scale={[1.5, 3]}
+        url="/img3.jpg"
+      />
+      <Image
+        position={[0, -height * 2 - height / 4, 0]}
+        scale={[width, height / 1.1]}
+        url="/img7.jpg"
+      />
+    </group>
+  );
+}
+
+function Typography() {
+  const state = useThree();
+  const { width, height } = state.viewport.getCurrentViewport(
+    state.camera,
+    [0, 0, 12]
+  );
+  const shared = {
+    font: "/Inter-Regular.woff",
+    letterSpacing: -0.1,
+    color: "black",
+  };
   return (
     <>
-      <CardDeck
-        cards={cards}
-        routeProps={routeProps}
-      ></CardDeck>
+      <Text
+        children="welcome"
+        anchorX="left"
+        position={[-width / 2.5, -height / 10, 12]}
+        {...shared}
+      />
+      <Text
+        children="to my"
+        anchorX="right"
+        position={[width / 2.5, -height * 2, 12]}
+        {...shared}
+      />
+      <Text children="portfolio" position={[0, -height * 4.624, 12]} {...shared} />
+    </>
+  );
+}
+
+function MainPageCardsDiv(_routeProps: RouteInitProps) {
+  useEffect(() => {
+    // Disable scrolling
+     document.body.style.overflow = "hidden";
+
+    return () => {
+      // Re-enable scrolling when component unmounts
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  return (
+    <>
+      <ClickSpark
+        sparkColor="#fff"
+        sparkSize={10}
+        sparkRadius={15}
+        sparkCount={8}
+        duration={400}
+      >
+        <Canvas camera={{ position: [0, 0, 20], fov: 15 }}>
+          <ScrollControls damping={0.2} pages={3} distance={0.5}>
+            <Scroll>
+              <Typography />
+              <Images />
+            </Scroll>
+            <Scroll html>
+              <div style={{ transform: "translate3d(65vw, 192vh, 0)" }}>
+                PMNDRS Pendant lamp
+                <br />
+                bronze, 38 cm
+                <br />
+                CHF 59.95
+                <br />
+              </div>
+            </Scroll>
+            {/** This is a helper that pre-emptively makes threejs aware of all geometries, textures etc
+               By default threejs will only process objects if they are "seen" by the camera leading 
+               to jank as you scroll down. With <Preload> that's solved.  */}
+            <Preload />
+          </ScrollControls>
+        </Canvas>
+        
+        <NavDockComponent
+          items={items}
+          panelHeight={68}
+          baseItemSize={50}
+          magnification={80}
+        />
+      </ClickSpark>
     </>
   );
 }

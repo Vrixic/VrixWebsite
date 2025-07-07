@@ -16,7 +16,7 @@ import {
   CardDeckProps,
   GLOBAL_FONT_SCALE,
   VP_ASPECT_RATIO,
-} from "../generic/global-properties";
+} from "../../generic/global-properties";
 
 let elementKeys: number = 10;
 const globalCardScaling = 0.5;

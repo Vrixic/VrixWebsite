@@ -1,15 +1,13 @@
 
-import CardDeck from "../deck/deck";
-import { ProfessionalPageCards, RouteInitProps } from "../generic/global-properties";
+import { RouteInitProps } from "../generic/global-properties";
 
-function ProfessionalPageCardsDiv(routeProps: RouteInitProps) {
-  const cards = ProfessionalPageCards;
+function ProfessionalPageCardsDiv(_routeProps: RouteInitProps) {
   return (
     <>
-      <CardDeck
+      {/* <CardDeck
         cards={cards}
         routeProps={routeProps}
-      ></CardDeck>
+      ></CardDeck> */}
     </>
   );
 }

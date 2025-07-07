@@ -1,4 +1,4 @@
-import CircularText from "../circular-text/circular-text";
+import CircularText from "../components/circular-text/circular-text";
 import styles from "../main-page/main-page.module.css";
 
 function LoadingScreen() {

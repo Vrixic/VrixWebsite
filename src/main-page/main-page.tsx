@@ -39,12 +39,15 @@ const items = [
   },
 ];
 
+function vw_scaling(width: number, x: number)
+{
+  return (x / 10.504248108990096) * width;
+}
+
 function Images() {
   const group = useRef<any>(null);
   const data = useScroll();
   const { width, height } = useThree((state) => state.viewport);
-  // const scaleFactor = width / 5
-  console.log(`scale factor: ${2 / 10.504248108990096}`);
   useFrame(() => {
     group.current.children[0].material.zoom = 1 + data.range(0, 1 / 3) / 3;
     group.current.children[1].material.zoom = 1 + data.range(0, 1 / 3) / 3;
@@ -62,18 +65,18 @@ function Images() {
   return (
     <group ref={group}>
       <Image
-        position={[width * -0.19, 0, 0]}
-        scale={[width * 0.38, height]}
+        position={[vw_scaling(width, -2), 0, 0]}
+        scale={[vw_scaling(width, 4), height]}
         url="/img1.jpg"
       />
       <Image
-        position={[width * 0.19, 0, 3]}
-        scale={width * 0.29}
+        position={[vw_scaling(width, 2), 0, 3]}
+        scale={vw_scaling(width, 3)}
         url="/img6.jpg"
       />
-      <Image position={[-2.05, -height, 6]} scale={[1, 3]} url="/trip2.jpg" />
-      <Image position={[-0.6, -height, 9]} scale={[1, 2]} url="/img8.jpg" />
-      <Image position={[0.75, -height, 10.5]} scale={1.5} url="/trip4.jpg" />
+      <Image position={[vw_scaling(width,-2.05), -height, 6]} scale={[vw_scaling(width, 1), 3]} url="/trip2.jpg" />
+      <Image position={[vw_scaling(width, -0.6), -height, 9]} scale={[vw_scaling(width, 1), 2]} url="/img8.jpg" />
+      <Image position={[vw_scaling(width, 0.75), -height, 10.5]} scale={[vw_scaling(width, 1.5), 1.5]} url="/trip4.jpg" />
       <Image
         position={[0, -height * 1.5, 7.5]}
         scale={[1.5, 3]}
@@ -100,19 +103,21 @@ function Typography() {
     color: "black",
   };
   const scaleFactor = width / 5;
+  function vw_scaling_(w: number, x:number) { return (w / w) * x;}
+
   return (
     <>
       <Text
         children="welcome"
         anchorX="left"
-        position={[-width / 2.5, -height / 10, 12]}
+        position={[vw_scaling_(width, -1.68), -height / 10, 12]}
         fontSize={scaleFactor}
         {...shared}
       />
       <Text
         children="to my"
         anchorX="right"
-        position={[width / 2.5, -height * 2, 12]}
+        position={[vw_scaling_(width, 1.68), -height * 2, 12]}
         fontSize={scaleFactor}
         {...shared}
       />

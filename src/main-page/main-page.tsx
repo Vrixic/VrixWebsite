@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import NavDockComponent from "../components/nav/nav-component";
-import {
-  RouteInitProps,
-} from "../generic/global-properties";
+import { RouteInitProps } from "../generic/global-properties";
 import {
   VscHome,
   VscArchive,
@@ -45,8 +43,8 @@ function Images() {
   const group = useRef<any>(null);
   const data = useScroll();
   const { width, height } = useThree((state) => state.viewport);
-  // const scaleFactor = width / 5 
-  // console.log(`scale factor: ${3/10.504248108990096}`)
+  // const scaleFactor = width / 5
+  console.log(`scale factor: ${2 / 10.504248108990096}`);
   useFrame(() => {
     group.current.children[0].material.zoom = 1 + data.range(0, 1 / 3) / 3;
     group.current.children[1].material.zoom = 1 + data.range(0, 1 / 3) / 3;
@@ -63,8 +61,16 @@ function Images() {
   });
   return (
     <group ref={group}>
-      <Image position={[-2, 0, 0]} scale={[width * 0.38, height]} url="/img1.jpg" />
-      <Image position={[2, 0, 3]} scale={width * 0.29} url="/img6.jpg" />
+      <Image
+        position={[width * -0.19, 0, 0]}
+        scale={[width * 0.38, height]}
+        url="/img1.jpg"
+      />
+      <Image
+        position={[width * 0.19, 0, 3]}
+        scale={width * 0.29}
+        url="/img6.jpg"
+      />
       <Image position={[-2.05, -height, 6]} scale={[1, 3]} url="/trip2.jpg" />
       <Image position={[-0.6, -height, 9]} scale={[1, 2]} url="/img8.jpg" />
       <Image position={[0.75, -height, 10.5]} scale={1.5} url="/trip4.jpg" />
@@ -93,7 +99,7 @@ function Typography() {
     letterSpacing: -0.1,
     color: "black",
   };
-  const scaleFactor = width / 5 
+  const scaleFactor = width / 5;
   return (
     <>
       <Text

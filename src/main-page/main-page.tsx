@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import NavDockComponent from "../components/nav/nav-component";
-import { RouteInitProps } from "../generic/global-properties";
+import {
+  GLOBAL_FONT_SCALE,
+  RouteInitProps,
+} from "../generic/global-properties";
 import {
   VscHome,
   VscArchive,
@@ -19,6 +22,8 @@ import {
   Preload,
   ScrollControls,
 } from "@react-three/drei";
+
+const fontSize = GLOBAL_FONT_SCALE * 0.001;
 
 const items = [
   { icon: <VscHome size={18} />, label: "Home", onClick: () => alert("Home!") },
@@ -95,15 +100,22 @@ function Typography() {
         children="welcome"
         anchorX="left"
         position={[-width / 2.5, -height / 10, 12]}
+        fontSize={fontSize}
         {...shared}
       />
       <Text
         children="to my"
         anchorX="right"
         position={[width / 2.5, -height * 2, 12]}
+        fontSize={fontSize}
         {...shared}
       />
-      <Text children="portfolio" position={[0, -height * 4.624, 12]} {...shared} />
+      <Text
+        children="portfolio"
+        position={[0, -height * 4.624, 12]}
+        fontSize={fontSize}
+        {...shared}
+      />
     </>
   );
 }
@@ -111,7 +123,7 @@ function Typography() {
 function MainPageCardsDiv(_routeProps: RouteInitProps) {
   useEffect(() => {
     // Disable scrolling
-     document.body.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
 
     return () => {
       // Re-enable scrolling when component unmounts
@@ -150,7 +162,7 @@ function MainPageCardsDiv(_routeProps: RouteInitProps) {
             <Preload />
           </ScrollControls>
         </Canvas>
-        
+
         <NavDockComponent
           items={items}
           panelHeight={68}

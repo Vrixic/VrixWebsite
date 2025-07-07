@@ -129,6 +129,7 @@ function NavDockLabel({ children, className = "", ...rest }: NavDockLabelProps) 
           className={`dock-label ${className}`}
           role="tooltip"
           style={{ x: "-50%" }}
+          color={"black"}
         >
           {children}
         </motion.div>

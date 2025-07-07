@@ -104,7 +104,7 @@ const CircularText: React.FC<CircularTextProps> = ({
   return (
     <motion.div
       className={`circular-text ${className}`}
-      style={{ rotate: rotation }}
+      style={{ rotate: rotation, color:"lightgray" }}
       initial={{ rotate: 0 }}
       animate={controls}
       onMouseEnter={handleHoverStart}

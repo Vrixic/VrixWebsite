@@ -3,10 +3,10 @@ import NavDockComponent from "../components/nav/nav-component";
 import { RouteInitProps } from "../generic/global-properties";
 import {
   VscHome,
-  VscArchive,
-  VscAccount,
-  VscSettingsGear,
+  VscGithub ,
+  VscGist,
 } from "react-icons/vsc";
+import { FaUserTie } from "react-icons/fa";
 import ClickSpark from "../components/pointer/click/click-spark";
 
 import { useRef } from "react";
@@ -20,27 +20,13 @@ import {
   ScrollControls,
 } from "@react-three/drei";
 
-const items = [
-  { icon: <VscHome size={18} />, label: "Home", onClick: () => alert("Home!") },
-  {
-    icon: <VscArchive size={18} />,
-    label: "Archive",
-    onClick: () => alert("Archive!"),
-  },
-  {
-    icon: <VscAccount size={18} />,
-    label: "Profile",
-    onClick: () => alert("Profile!"),
-  },
-  {
-    icon: <VscSettingsGear size={18} />,
-    label: "Settings",
-    onClick: () => alert("Settings!"),
-  },
-];
+export interface RotatingTextProps {
+  texts: string[];
+  loop?: boolean;
+  onNext?: (index: number) => void;
+}
 
-function vw_scaling(width: number, x: number)
-{
+function vw_scaling(width: number, x: number) {
   return (x / 10.504248108990096) * width;
 }
 
@@ -67,25 +53,37 @@ function Images() {
       <Image
         position={[vw_scaling(width, -2), 0, 0]}
         scale={[vw_scaling(width, 4), height]}
-        url="/img1.jpg"
+        url="/xbox-controller.jpg"
       />
       <Image
         position={[vw_scaling(width, 2), 0, 3]}
         scale={vw_scaling(width, 3)}
-        url="/img6.jpg"
+        url="/meta_quest.png"
       />
-      <Image position={[vw_scaling(width,-2.05), -height, 6]} scale={[vw_scaling(width, 1), 3]} url="/trip2.jpg" />
-      <Image position={[vw_scaling(width, -0.6), -height, 9]} scale={[vw_scaling(width, 1), 2]} url="/img8.jpg" />
-      <Image position={[vw_scaling(width, 0.75), -height, 10.5]} scale={[vw_scaling(width, 1.5), 1.5]} url="/trip4.jpg" />
+      <Image
+        position={[vw_scaling(width, -2.05), -height, 6]}
+        scale={[vw_scaling(width, 1), 3]}
+        url="/shutdown_0.png"
+      />
+      <Image
+        position={[vw_scaling(width, -0.6), -height, 9]}
+        scale={[vw_scaling(width, 1), 2]}
+        url="/shutdown_1.png"
+      />
+      <Image
+        position={[vw_scaling(width, 0.75), -height, 10.5]}
+        scale={[vw_scaling(width, 1.5), 1.5]}
+        url="/shutdown_2.png"
+      />
       <Image
         position={[0, -height * 1.5, 7.5]}
         scale={[1.5, 3]}
-        url="/img3.jpg"
+        url="/veccalogofinal.jpg"
       />
       <Image
         position={[0, -height * 2 - height / 4, 0]}
         scale={[width, height / 1.1]}
-        url="/img7.jpg"
+        url="/YUKAIMG.png"
       />
     </group>
   );
@@ -100,13 +98,22 @@ function Typography() {
   const shared = {
     font: "/Inter-Regular.woff",
     letterSpacing: -0.1,
-    color: "black",
+    color: "gray",
   };
   const scaleFactor = width / 5;
-  function vw_scaling_(w: number, x:number) { return (w / w) * x;}
+  function vw_scaling_(w: number, x: number) {
+    return (w / w) * x;
+  }
 
   return (
     <>
+    <Text
+        children="scroll down"
+        anchorX="left"
+        position={[vw_scaling_(width, 1 + height * 0.1), height / 2.5, 12]}
+        fontSize={scaleFactor * 0.1}
+        {...shared}
+      />
       <Text
         children="welcome"
         anchorX="left"
@@ -142,16 +149,38 @@ function MainPageCardsDiv(_routeProps: RouteInitProps) {
     };
   }, []);
 
+const items = [
+  { icon: <VscHome size={18} />, label: "Home", onClick: () => {_routeProps.navigate("/")} },
+  {
+    icon: <FaUserTie  size={18} />,
+    label: "professional",
+    onClick: () => {_routeProps.navigate("/professional")},
+  },
+  {
+    icon: <VscGithub  size={18} />,
+    label: "personal",
+    onClick: () => _routeProps.navigate("/personal"),
+  },
+  {
+    icon: <VscGist size={18} />,
+    label: "resume",
+    onClick: () => _routeProps.navigate("/resume"),
+  },
+];
+
   return (
     <>
       <ClickSpark
-        sparkColor="#fff"
-        sparkSize={10}
-        sparkRadius={15}
-        sparkCount={8}
-        duration={400}
+        sparkColor="#ff0000"
+        sparkSize={15}
+        sparkRadius={30}
+        sparkCount={16}
+        duration={200}
       >
-        <Canvas camera={{ position: [0, 0, 20], fov: 15 }}>
+        <Canvas
+          camera={{ position: [0, 0, 20], fov: 15 }}
+          style={{ background: "white", zIndex: 0}}
+        >
           <ScrollControls damping={0.2} pages={3} distance={0.5}>
             <Scroll>
               <Typography />
@@ -159,11 +188,9 @@ function MainPageCardsDiv(_routeProps: RouteInitProps) {
             </Scroll>
             <Scroll html>
               <div style={{ transform: "translate3d(65vw, 192vh, 0)" }}>
-                PMNDRS Pendant lamp
+                vrixic
                 <br />
-                bronze, 38 cm
-                <br />
-                CHF 59.95
+                diamond, 38 cm
                 <br />
               </div>
             </Scroll>

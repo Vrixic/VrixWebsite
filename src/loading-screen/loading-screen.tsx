@@ -8,7 +8,7 @@ function LoadingScreen() {
         <CircularText
           text="LOADING*4*YOU*"
           onHover="speedUp"
-          spinDuration={10}
+          spinDuration={2}
           className="custom-class"
         />
       </div>

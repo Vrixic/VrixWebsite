@@ -1,8 +1,17 @@
+.main {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background: #ffffff;
+
+  margin: 0;
+}
+
 .container {
   position: relative;
   height: 100%;
   width: 100%;
-  background: #ff2558;
+  background: #ffffff;
   cursor: url("https://uploads.codesandbox.io/uploads/user/b3e56831-8b98-4fee-b941-0e27f39883ab/Ad1_-cursor.png")
       39 39,
     auto;

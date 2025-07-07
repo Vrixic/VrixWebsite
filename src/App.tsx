@@ -9,7 +9,7 @@ const ProfessionalPage = lazy(
   () => import("./professional-page/professional-page")
 );
 export const MainPage = lazy(() =>
-  delay(2000).then(() => import("./main-page/main-page"))
+  delay(1000).then(() => import("./main-page/main-page"))
 );
 
 function App() {

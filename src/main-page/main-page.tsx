@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import NavDockComponent from "../components/nav/nav-component";
 import {
-  GLOBAL_FONT_SCALE,
   RouteInitProps,
 } from "../generic/global-properties";
 import {
@@ -22,8 +21,6 @@ import {
   Preload,
   ScrollControls,
 } from "@react-three/drei";
-
-const fontSize = GLOBAL_FONT_SCALE * 0.001;
 
 const items = [
   { icon: <VscHome size={18} />, label: "Home", onClick: () => alert("Home!") },
@@ -94,26 +91,27 @@ function Typography() {
     letterSpacing: -0.1,
     color: "black",
   };
+  const scaleFactor = width / 5 // tweak this to your needs
   return (
     <>
       <Text
         children="welcome"
         anchorX="left"
         position={[-width / 2.5, -height / 10, 12]}
-        fontSize={fontSize}
+        fontSize={scaleFactor}
         {...shared}
       />
       <Text
         children="to my"
         anchorX="right"
         position={[width / 2.5, -height * 2, 12]}
-        fontSize={fontSize}
+        fontSize={scaleFactor}
         {...shared}
       />
       <Text
         children="portfolio"
         position={[0, -height * 4.624, 12]}
-        fontSize={fontSize}
+        fontSize={scaleFactor}
         {...shared}
       />
     </>
